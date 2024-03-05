@@ -67,6 +67,8 @@ class CRecurveTrade : public CTradeOps {
       double         CatastrophicSLFactor(double lot, double var);
       int            CloseOppositeTrade(ENUM_ORDER_TYPE order);
       int            CloseStackedTrade(ENUM_ORDER_TYPE order);
+      double         CatastrophicLossVAR();
+      double         ValueAtRisk();
 
       // UTILITIES 
       int            logger(string message, string function, bool notify=false, bool debug=false);
@@ -93,9 +95,24 @@ void           CRecurveTrade::InitializeSymbolProperties(void) {
 
 }
 
+double         CRecurveTrade::CatastrophicLossVAR(void) {
+
+   double balance    = UTIL_ACCOUNT_BALANCE(); 
+   double var        = balance * InpAcctMaxRiskPct / 100; 
+   return var; 
+}
+
+double         CRecurveTrade::ValueAtRisk(void) {
+   
+   double balance    = UTIL_ACCOUNT_BALANCE(); 
+   double var        = balance * InpAcctTradeRiskPct / 100; 
+   return var;
+
+}
+
 bool           CRecurveTrade::EndOfDay(void) {
    int hour = TimeHour(TimeCurrent());
-   if (hour > 21) return true;
+   if (hour > InpEntryWindowClose) return true;
    return false; 
    
 }
@@ -105,7 +122,7 @@ double         CRecurveTrade::CalcLot(double sl_distance) {
    /*
    lot = (var * trade_point) / (sl_ticks * tick_value)
    */
-   double var = 20;
+   double var = ValueAtRisk();
    double lot_size = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()); 
    
    return NormalizeDouble(lot_size, 2); 
@@ -116,7 +133,8 @@ bool           CRecurveTrade::ValidDayVolatility(void) {
 
    double day_volatility      = DAY_VOL();
    double day_peak            = DAY_PEAK_VOL(); 
-   double minimum_volatility  = 0.00682;
+   //double minimum_volatility  = 0.00682; // NEED
+   double minimum_volatility  = InpLowVolThresh;  
    
    if (day_volatility > day_peak) return false; 
    if (day_volatility < minimum_volatility) return false;
@@ -127,26 +145,24 @@ bool           CRecurveTrade::ValidDayVolatility(void) {
 }
 
 bool           CRecurveTrade::ValidDayOfWeek(void) {
-   
-   return true;
-   int days[] = {2, 3, 4, 5}; 
-   
+      
    int current_day_of_week    = DayOfWeek();
    
-   int num_days = ArraySize(days);
    
-   for (int i = 0; i < num_days; i++) {
-      int day = days[i];
-      if (day == current_day_of_week) return true;
+   switch(current_day_of_week) {
+      case 1:  return InpMonday;
+      case 2:  return InpTuesday;
+      case 3:  return InpWednesday;
+      case 4:  return InpThursday;
+      case 5:  return InpFriday;
    }
-   return false;   
-   
+   return false; 
 }
 
 double         CRecurveTrade::SLFactor(double entry_price) {
    
    double volatility_factor      = (DAY_VOL() * 0.5) / TRADE_POINTS(); 
-   double minimum_sl             = 200;
+   double minimum_sl             = InpMinimumSLDistance;
    
    double sl_factor              = volatility_factor < minimum_sl ? volatility_factor * 4 * TRADE_POINTS() : volatility_factor * TRADE_POINTS(); 
    return sl_factor;
@@ -169,7 +185,7 @@ TradeParams    CRecurveTrade::ParamsLong(ENUM_ORDER_SEND_METHOD method,TradeLaye
    double virtual_sl       = PARAMS.entry_price - SLFactor(PARAMS.entry_price);
    PARAMS.volume           = CalcLot(MathAbs(PARAMS.entry_price - virtual_sl)) * layer.allocation; 
    
-   PARAMS.sl_price         = PARAMS.entry_price - CatastrophicSLFactor(PARAMS.volume, 100); // CALCULATE VIRTUAL SL LATER
+   PARAMS.sl_price         = PARAMS.entry_price - CatastrophicSLFactor(PARAMS.volume, CatastrophicLossVAR()); // CALCULATE VIRTUAL SL LATER
    PARAMS.tp_price         = 0; 
    
    PARAMS.order_type       = ORDER_TYPE_BUY; 
@@ -186,7 +202,7 @@ TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLay
    double virtual_sl       = PARAMS.entry_price + SLFactor(PARAMS.entry_price);
    PARAMS.volume           = CalcLot(MathAbs(PARAMS.entry_price - virtual_sl)) * layer.allocation; 
    
-   PARAMS.sl_price         = PARAMS.entry_price + CatastrophicSLFactor(PARAMS.volume, 100);
+   PARAMS.sl_price         = PARAMS.entry_price + CatastrophicSLFactor(PARAMS.volume, CatastrophicLossVAR());
    PARAMS.tp_price         = 0;
    
    PARAMS.order_type       = ORDER_TYPE_SELL; 
@@ -325,10 +341,10 @@ int            CRecurveTrade::Stage() {
 
 bool           CRecurveTrade::ValidTradeWindow(void) {
 
-   int hour    = TimeHour(TimeCurrent()); 
-   int minute  = TimeMinute(TimeCurrent()); 
-   int ENTRY_HOUR       = 4; // convert to input 
-   int EXIT_HOUR        = 21; // convert to input 
+   int hour             = TimeHour(TimeCurrent()); 
+   int minute           = TimeMinute(TimeCurrent()); 
+   int ENTRY_HOUR       = InpEntryWindowOpen; // convert to input 
+   int EXIT_HOUR        = InpEntryWindowClose; // convert to input 
    
    if (minute != 0) return false; 
    if (hour < ENTRY_HOUR) return false ;
@@ -338,17 +354,17 @@ bool           CRecurveTrade::ValidTradeWindow(void) {
 }
 
 int            CRecurveTrade::Signal() {
-   double spread_trigger = 2.1;
-   double skew_trigger = 0.6;
+   double spread_trigger      = InpZThresh;
+   double skew_trigger        = InpSkewThresh;
    
-   double normalized_spread = STANDARD_SCORE();
-   double skew = SKEW(); 
+   double normalized_spread   = STANDARD_SCORE();
+   double skew                = SKEW(); 
    
-   double last_high = UTIL_CANDLE_HIGH(1); 
-   double last_low  = UTIL_CANDLE_LOW(1);
+   double last_high           = UTIL_CANDLE_HIGH(1); 
+   double last_low            = UTIL_CANDLE_LOW(1);
    
-   double upper_bands = UPPER_BANDS();
-   double lower_bands = LOWER_BANDS();
+   double upper_bands         = UPPER_BANDS();
+   double lower_bands         = LOWER_BANDS();
    //PrintFormat("Skew: %f Spread: %f, Lower: %f", skew, normalized_spread, lower_bands);
    if ((skew > skew_trigger) && (normalized_spread > spread_trigger) && (last_high > upper_bands)) return -1;
    if ((skew < -skew_trigger) && (normalized_spread <- spread_trigger) && (last_low < lower_bands)) return 1; 
@@ -382,13 +398,13 @@ bool           CRecurveTrade::notification(string message) {
 
 
 void           CRecurveTrade::InitializeFeatureParameters(void) {
-   DAILY_VOLATILITY_WINDOW            = 10;
-   DAILY_VOLATILITY_PEAK_LOOKBACK     = 90;
-   NORMALIZED_SPREAD_LOOKBACK         = 10; 
-   NORMALIZED_SPREAD_MA_LOOKBACK      = 50;
-   SKEW_LOOKBACK                      = 20;
-   BBANDS_LOOKBACK                    = 14;
-   BBANDS_NUM_SDEV                    = 2;
+   DAILY_VOLATILITY_WINDOW            = InpDayVolWindow;
+   DAILY_VOLATILITY_PEAK_LOOKBACK     = InpDayPeakVolWindow;
+   NORMALIZED_SPREAD_LOOKBACK         = InpNormSpreadWindow; 
+   NORMALIZED_SPREAD_MA_LOOKBACK      = InpNormMAWindow;
+   SKEW_LOOKBACK                      = InpSkewWindow;
+   BBANDS_LOOKBACK                    = InpBBandsWindow;
+   BBANDS_NUM_SDEV                    = InpBBandsNumSdev;
 }
 
 
@@ -400,7 +416,7 @@ double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift =
 
    return iCustom(NULL, 
       PERIOD_D1, 
-      indicator_path("std_dev"), // path 
+      indicator_path(InpSdevFilename), // path 
       DAILY_VOLATILITY_WINDOW,   // sdev window
       DAILY_VOLATILITY_PEAK_LOOKBACK,   // max window
       0,    // shift
@@ -414,7 +430,7 @@ double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift =
 double         CRecurveTrade::STANDARD_SCORE(int shift=1) {
    return iCustom(NULL,
       PERIOD_M15, 
-      indicator_path("z_score"),
+      indicator_path(InpSpreadFilename),
       NORMALIZED_SPREAD_LOOKBACK,   // normalization window 
       NORMALIZED_SPREAD_MA_LOOKBACK,   // moving average window 
       0,    // shift
@@ -428,7 +444,7 @@ double         CRecurveTrade::SKEW(int shift=1) {
 
    return iCustom(NULL,
       PERIOD_M15,
-      indicator_path("skew"),
+      indicator_path(InpSkewFilename),
       SKEW_LOOKBACK,   // window
       0,    // shift
       0,    // buffer
@@ -450,10 +466,11 @@ double         CRecurveTrade::BBANDS(int mode, int shift =1) {
 }
 
 
-string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", INDICATOR_DIRECTORY, indicator_name); }
+string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", InpIndicatorPath, indicator_name); }
 double         CRecurveTrade::DAY_VOL(void)           { return DAILY_VOLATILITY(MODE_STD_DEV); }
 double         CRecurveTrade::DAY_PEAK_VOL(void)      { return DAILY_VOLATILITY(MODE_ROLLING_MAX_STD_DEV); }
 double         CRecurveTrade::UPPER_BANDS(void)       { return BBANDS(MODE_UPPER); }
 double         CRecurveTrade::LOWER_BANDS(void)       { return BBANDS(MODE_LOWER); }
+
 
 

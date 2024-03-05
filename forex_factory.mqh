@@ -169,6 +169,7 @@ string         CNewsEvents::ParseImpact(string impact) {
    if (impact == "H") return "High";
    if (impact == "M") return "Medium";
    if (impact == "L") return "Low";
+   if (impact == "N") return "Neutral";
    return "";
 }
 
@@ -228,8 +229,7 @@ int         CNewsEvents::GetNewsSymbolToday(void){
    
    ClearArray(NEWS_SYMBOL_TODAY);
    int size = NumNews();
-   
-   
+  
    
    for (int i = 0; i < size; i++){
        
@@ -237,7 +237,7 @@ int         CNewsEvents::GetNewsSymbolToday(void){
        
        if (!DateMatch(DateToday(), NEWS_CURRENT[i].time)) continue; 
        //PrintFormat("TITLE: %s, TIME: %s", NEWS_CURRENT[i].title, TimeToString(NEWS_CURRENT[i].time));
-       if ((NEWS_CURRENT[i].impact == "High") || (NEWS_CURRENT[i].impact == "Holiday")) AppendToNews(NEWS_CURRENT[i], NEWS_SYMBOL_TODAY); 
+       if ((NEWS_CURRENT[i].impact == "Holiday")) AppendToNews(NEWS_CURRENT[i], NEWS_SYMBOL_TODAY); 
    }
    return ArraySize(NEWS_SYMBOL_TODAY);
 }
