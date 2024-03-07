@@ -133,9 +133,10 @@ input string                  InpSdevFilename      = "std_dev"; // VOLATILITY FI
 
 
 input string                  InpEntry             = " ========== ENTRY WINDOW =========="; //
-input int                     InpEntryWindowOpen   = 4; // ENTRY WINDOW OPEN
+input int                     InpEntryWindowOpen   = 2; // ENTRY WINDOW OPEN
 input int                     InpEntryWindowClose  = 21; // ENTRY WINDOW CLOSE 
 input int                     InpTradeDeadline     = 22; // TRADE DEADLINE
+input bool                    InpRoundHourOnly     = true; // TRADE ON ROUND HOUR ONLY
 
 input string                  InpLayers            = " ========== LAYERS ========== ";
 input int                     InpNumLayers         = 2; // NUMBER OF LAYERS
