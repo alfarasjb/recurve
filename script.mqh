@@ -18,6 +18,7 @@ int OnInit() {
    */
    recurve_trade.InitializeFeatureParameters();
    recurve_trade.InitializeSymbolProperties();
+   recurve_trade.InitializeIntervals();
    
    if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
    ShowComments();
@@ -37,7 +38,7 @@ MAIN LOOP
       //int holidays_r4f = news_events.GetNewsSymbolToday(); // FOR LIVE 
       //PrintFormat("Num Holidays: %i", holidays_r4f); 
       int stage_value = recurve_trade.Stage(); 
-      recurve_trade.logger(StringFormat("Stage Value: %i", stage_value), __FUNCTION__);
+      //recurve_trade.logger(StringFormat("Stage Value: %i", stage_value), __FUNCTION__);
       if (recurve_trade.EndOfDay()) recurve_trade.CloseOrder();
       ShowComments();
    }

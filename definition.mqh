@@ -10,6 +10,10 @@ enum ENUM_DIRECTION {
    LONG, SHORT, INVALID
 };
 
+enum ENUM_SIGNAL {
+   TRADE_LONG, TRADE_SHORT, CUT_LONG, CUT_SHORT, SIGNAL_NONE
+};
+
 enum ENUM_TRADE_MANAGEMENT {
    MODE_BREAKEVEN, MODE_TRAILING, MODE_NONE
 };
@@ -86,6 +90,27 @@ struct TradesActive {
    ActivePosition secondary_layers[]; // STORES SECONDARY POSITIONS
 } TRADES_ACTIVE;
 
+struct FeatureValues {
+/*
+   double normalized_spread   = STANDARD_SCORE();
+   double skew                = SKEW(); 
+   
+   double last_high           = UTIL_CANDLE_HIGH(1); 
+   double last_low            = UTIL_CANDLE_LOW(1);
+   
+   double upper_bands         = UPPER_BANDS();
+   double lower_bands         = LOWER_BANDS();
+   
+   double extreme_upper       = EXTREME_UPPER();
+   double extreme_lower       = EXTREME_LOWER();
+*/
+
+   double standard_score_value, skew_value, last_candle_high, last_candle_low, last_candle_close;
+   
+   double upper_bands, lower_bands, extreme_upper, extreme_lower, slow_upper, slow_lower; 
+
+} FEATURE;
+
 /*
 z score threshold = 2.1 
 sl pips = 20 
@@ -116,14 +141,16 @@ input int                     InpRPSpreadLimit     = 10; // RISK PROFILE: SPREAD
 input int                     InpRPTradeLimit      = 2; // MAX NUMBER OF POSITIONS PER DAY
 
 input string                  InpIndicator         = " ========== INDICATOR VALUES ========== ";
+input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
 input int                     InpDayVolWindow      = 10; // DAILY VOLATILITY WINDOW 
 input int                     InpDayPeakVolWindow  = 90; // DAILY VOLATILITY PEAK LOOKBACK
 input int                     InpNormSpreadWindow  = 10; // NORMALIZED SPREAD LOOKBACK 
 input int                     InpNormMAWindow      = 50; // NORMALIZED SPREAD MA LOOKBACK
 input int                     InpSkewWindow        = 20; // SKEW LOOKBACK
 input int                     InpBBandsWindow      = 14; // BBANDS LOOKBACK
+input int                     InpBBandsSlowWindow  = 100; // SLOW BBANDS LOOKBACK
 input int                     InpBBandsNumSdev     = 2;  // BBANDS NUM SDEV
-input double                  InpZThresh           = 2.1; // SPREAD THRESHOLD
+input double                  InpZThresh           = 2; // SPREAD THRESHOLD
 input double                  InpSkewThresh        = 0.6; // SKEW THRESHOLD
 input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
 input string                  InpIndicatorPath     = "\\b63\\statistics\\"; // INDICATOR FOLDER
@@ -172,7 +199,7 @@ input Source                  InpNewsSource        = R4F_WEEKLY; // NEWS SOURCE
 input string                  InpLogging           = " ========== LOGGING =========";
 input bool                    InpTerminalMsg       = true; // TERMINAL LOGGING 
 input bool                    InpPushNotifs        = false; // PUSH NOTIFICATIONS
-input bool                    InpDebugLogging      = false; // DEBUG LOGGING
+input bool                    InpDebugLogging      = true; // DEBUG LOGGING
 
 
 

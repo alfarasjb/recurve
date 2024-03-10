@@ -8,7 +8,7 @@
 class CRecurveTrade : public CTradeOps {
 
    protected:
-      int            DAILY_VOLATILITY_WINDOW, DAILY_VOLATILITY_PEAK_LOOKBACK, NORMALIZED_SPREAD_LOOKBACK, NORMALIZED_SPREAD_MA_LOOKBACK, SKEW_LOOKBACK, BBANDS_LOOKBACK, BBANDS_NUM_SDEV; 
+      int            DAILY_VOLATILITY_WINDOW, DAILY_VOLATILITY_PEAK_LOOKBACK, NORMALIZED_SPREAD_LOOKBACK, NORMALIZED_SPREAD_MA_LOOKBACK, SKEW_LOOKBACK, BBANDS_LOOKBACK, BBANDS_NUM_SDEV, BBANDS_SLOW_LOOKBACK; 
       
       // SYMBOL PROPERTIES 
       double         tick_value, trade_points, contract_size;
@@ -44,20 +44,25 @@ class CRecurveTrade : public CTradeOps {
       double         DAILY_VOLATILITY(int volatility_mode, int shift = 1); 
       double         STANDARD_SCORE(int shift = 1);
       double         SKEW(int shift = 1);
-      double         BBANDS(int mode, int shift = 1);
+      double         BBANDS(int mode, int num_sd = 2, int shift = 1);
+      double         BBANDS_SLOW(int mode, int num_sd = 2, int shift = 1);
       
       // FEATURE WRAPPER 
       double         DAY_VOL();
       double         DAY_PEAK_VOL();
       double         UPPER_BANDS();
       double         LOWER_BANDS();
+      double         EXTREME_UPPER();
+      double         EXTREME_LOWER();
+      double         SLOW_UPPER();
+      double         SLOW_LOWER();
       
       
       // LOGIC
       bool           ValidTradeWindow(); 
       bool           ValidDayVolatility(); 
       bool           ValidDayOfWeek();
-      int            Signal();
+      ENUM_SIGNAL    Signal(FeatureValues &features);
       bool           EndOfDay();
       bool           ValidInterval();
       
@@ -76,10 +81,15 @@ class CRecurveTrade : public CTradeOps {
       int            CloseStackedTrade(ENUM_ORDER_TYPE order);
       double         CatastrophicLossVAR();
       double         ValueAtRisk();
-
+      double         FloatingPL();
+      bool           InFloatingLoss();
+      FeatureValues  SetLatestFeatureValues();
+      bool           PreviousDayValid(ENUM_DIRECTION direction);
+   
       // UTILITIES 
       int            logger(string message, string function, bool notify=false, bool debug=true);
       bool           notification(string message);
+      int            error(string message);
 }; 
 
 
@@ -88,6 +98,7 @@ CRecurveTrade::CRecurveTrade(void) {
    MAGIC(InpMagic);
    InitializeFeatureParameters();
    InitializeSymbolProperties();
+   InitializeIntervals();
 
 }
 
@@ -106,8 +117,8 @@ void           CRecurveTrade::InitializeSymbolProperties(void) {
 void           CRecurveTrade::InitializeIntervals(void) {
 
    ENUM_TIMEFRAMES   current_timeframe = Period();
-   if (current_timeframe != InpRPTimeframe) {
-      logger("Invalid Timeframe", __FUNCTION__);
+   if (current_timeframe != InpRPTimeframe && InpRPTimeframe != PERIOD_CURRENT) {
+      logger(StringFormat("Invalid Timeframe. Selected: %i, Target: %s", Period(), EnumToString(InpRPTimeframe)), __FUNCTION__);
       return;
    }
    
@@ -126,6 +137,11 @@ bool           CRecurveTrade::ValidInterval(void) {
    int minute  = TimeMinute(TimeCurrent());
    
    int size    = ArraySize(TRADE_INTERVALS);
+   
+   if (size == 0) {
+      logger("Empty Interval. Returning True.", __FUNCTION__);
+      return true;
+   }
    
    for (int i = 0; i < size; i++) {
       int interval = TRADE_INTERVALS[i];
@@ -260,12 +276,14 @@ TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLay
 int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
 
    if (!ValidTradeWindow()) { 
-      logger("ORDER SEND FAILED. Invalid Trade Window", __FUNCTION__);
+      logger("ORDER SEND FAILED. Trade window is closed.", __FUNCTION__);
       return 0;
    }
    
    if (!ValidInterval()) {
-      logger(StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", TimeMinute(TimeCurrent())), __FUNCTION__); 
+      string error_message = StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", TimeMinute(TimeCurrent()));
+      logger(error_message, __FUNCTION__); 
+      error(error_message);
       return 0;
    }
 
@@ -276,8 +294,15 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    int ticket     = OP_OrderOpen(Symbol(), (ENUM_ORDER_TYPE)PARAMS.order_type, PARAMS.volume, PARAMS.entry_price, PARAMS.sl_price, PARAMS.tp_price, comment);
    
    if (ticket == -1) {
-      logger(StringFormat("ORDER SEND FAILED. ERROR: %i. Vol: %f, Entry: %f, SL: %f, TP: %f", GetLastError(), PARAMS.volume, PARAMS.entry_price, PARAMS.sl_price, PARAMS.tp_price), __FUNCTION__, true);
-      Alert("ORDER SEND FAILED.");
+      string error_message = StringFormat("ORDER SEND FAILED. ERROR: %i. Vol: %f, Entry: %f, SL: %f, TP: %f", 
+         GetLastError(), 
+         PARAMS.volume, 
+         PARAMS.entry_price, 
+         PARAMS.sl_price, 
+         PARAMS.tp_price);
+         
+      logger(error_message, __FUNCTION__, true);
+      error(error_message);
       return -1; 
    }
    /*
@@ -307,6 +332,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
       PARAMS.volume, 
       PARAMS.entry_price, 
       PARAMS.sl_price), __FUNCTION__);
+      
    return ticket; 
 
 }
@@ -323,17 +349,50 @@ int            CRecurveTrade::CloseOrder(void) {
 
 }
 
+double         CRecurveTrade::FloatingPL(void) {
+
+   int num_trades = PosTotal(); 
+   
+   double floating_pl   = 0;
+   int    trades_found  = 0;
+   for (int i = 0; i < num_trades; i++) {
+      int t = OP_OrderSelectByIndex(i);
+      if (!OP_TradeMatch(i)) continue; 
+      floating_pl += PosProfit();
+      trades_found++;
+   }
+   if (trades_found > 0) logger(StringFormat("%i Open Positions Found for %s. Floating P/L: %f", 
+      trades_found, 
+      Symbol(), 
+      floating_pl), __FUNCTION__);
+   return floating_pl; 
+}
+
+bool        CRecurveTrade::InFloatingLoss(void) {
+   double   floating_pl    = FloatingPL(); 
+   if (floating_pl >= 0) return false; 
+   logger(StringFormat("%s is in floating loss.", Symbol()), __FUNCTION__);
+   return true; 
+}
+
 int            CRecurveTrade::CloseOppositeTrade(ENUM_ORDER_TYPE order) {
    
    int num_trades = PosTotal(); 
    
    int trades_to_close[];
+   ArrayFree(trades_to_close);
+   ArrayResize(trades_to_close, 0);
    
-   logger(StringFormat("Close Opposite Trade. Positions Open: %i, Orders to ignore: %s", num_trades, EnumToString(order)), __FUNCTION__);
+   logger(StringFormat("Close Opposite Trade. Positions Open: %i, Orders to ignore: %s", 
+      num_trades, 
+      EnumToString(order)), __FUNCTION__);
+      
+   bool valid_interval  = ValidInterval();
    for (int i = 0; i < num_trades; i++) {
       int t = OP_OrderSelectByIndex(i);
       if (!OP_TradeMatch(i)) continue; 
       if (PosOrderType() == order) continue; 
+      if (PosProfit() > 0 && !valid_interval) continue; // ignore orders in profit
       
       int size = ArraySize(trades_to_close); 
       ArrayResize(trades_to_close, size + 1);
@@ -341,8 +400,16 @@ int            CRecurveTrade::CloseOppositeTrade(ENUM_ORDER_TYPE order) {
    
    }
    
+   int target_trades_to_close = ArraySize(trades_to_close);
+   
    int closed_orders = OP_OrdersCloseBatch(trades_to_close);
    logger(StringFormat("Closed %i Opposite Trades.", closed_orders), __FUNCTION__);
+   if (target_trades_to_close != closed_orders) {
+      logger(StringFormat("Failed to close opposite trades. Target: %i, Closed: %i", target_trades_to_close, closed_orders), __FUNCTION__);
+      Sleep(2500);
+      CloseOppositeTrade(order); 
+      
+   }
    return closed_orders; 
 }
 
@@ -352,21 +419,27 @@ int            CRecurveTrade::CloseStackedTrade(ENUM_ORDER_TYPE order) {
    
    int trades_to_close[];
    
-   logger(StringFormat("Close Stacked Trade. Positions Open: %i, Existing Position: %s", num_trades, EnumToString(order)), __FUNCTION__);
+   logger(StringFormat("Close Stacked Trade. Positions Open: %i, Existing Position: %s", 
+      num_trades, 
+      EnumToString(order)), __FUNCTION__);
+      
+   bool valid_interval  = ValidInterval();
    for (int i = 0; i < num_trades; i++ ){ 
       int t = OP_OrderSelectByIndex(i);
       if (!OP_TradeMatch(i)) continue; 
       if (PosOrderType() != order) continue; 
-      
+      if (PosProfit() < 0 && !valid_interval) continue; // skip trades in profit 
+      if (PosProfit() > 0 && valid_interval) continue;
       int size = ArraySize(trades_to_close);
       ArrayResize(trades_to_close, size + 1);
       trades_to_close[size] = PosTicket();
    }
    int closed_orders = OP_OrdersCloseBatch(trades_to_close);
-   logger(StringFormat("Closed %i Opposite Trades.", closed_orders), __FUNCTION__);
+   logger(StringFormat("Closed %i Stacked Trades.", closed_orders), __FUNCTION__);
    return closed_orders;
 
 }
+
 
 int            CRecurveTrade::SendOrder(TradeParams &PARAMS) {
    // CLOSE ALL OPEN TRADES IF STACKING IS DISABLED
@@ -390,21 +463,42 @@ int            CRecurveTrade::Stage() {
    if (!ValidDayOfWeek()) return 0; 
    if (!ValidDayVolatility()) return 0; 
    
-   int signal     = Signal();
    
-   logger(StringFormat("Signal: %i", signal), __FUNCTION__);
+   
+   FeatureValues  LatestFeatureValues     = SetLatestFeatureValues(); 
+   
+   ENUM_SIGNAL signal   = Signal(LatestFeatureValues);
+   
+   
    TradeLayer     LAYER;
    LAYER.layer          = LAYER_PRIMARY;
    LAYER.allocation     = 1.0;  
    
+   if (signal != SIGNAL_NONE) {
+      logger(StringFormat("Signal: %s", EnumToString(signal)), __FUNCTION__);
+      PrintFormat("Skew: %f Spread: %f Daily Vol: %f Day Peak :%f", 
+      FEATURE.skew_value, 
+      FEATURE.standard_score_value,
+      DAY_VOL(),
+      DAY_PEAK_VOL()
+      );
+   
+   }
+   
    switch(signal) {
-      case 0:        return 0; 
-      case 1: 
+      //case 0:        return 0; 
+      case TRADE_LONG: 
          logger("Send Order: Long", __FUNCTION__);       
          return SendOrder(ParamsLong(MODE_MARKET, LAYER)); // SEND LONG 
-      case -1:       
+      case TRADE_SHORT:       
          logger("Send Order: Short", __FUNCTION__);
          return SendOrder(ParamsShort(MODE_MARKET, LAYER));  // SEND SHORT 
+      case CUT_LONG:
+         logger("Cut Long", __FUNCTION__);
+         return CloseStackedTrade(ORDER_TYPE_BUY);
+      case CUT_SHORT: 
+         logger("Cut Short", __FUNCTION__);
+         return CloseStackedTrade(ORDER_TYPE_SELL);
       default:       break;
       
    }
@@ -425,23 +519,66 @@ bool           CRecurveTrade::ValidTradeWindow(void) {
    
 }
 
-int            CRecurveTrade::Signal() {
+bool           CRecurveTrade::PreviousDayValid(ENUM_DIRECTION direction) {
+   
+   if (!InpUsePrevDay) return true; 
+   
+   switch(direction) {
+      case LONG: 
+         if (UTIL_CANDLE_LOW() > UTIL_PREVIOUS_DAY_LOW()) return true; 
+         return false; 
+      case SHORT:   
+         if (UTIL_CANDLE_HIGH() < UTIL_PREVIOUS_DAY_HIGH()) return true;
+         return false;
+   }
+   return false; 
+   
+}
+
+
+ENUM_SIGNAL    CRecurveTrade::Signal(FeatureValues &features) {
    double spread_trigger      = InpZThresh;
    double skew_trigger        = InpSkewThresh;
    
-   double normalized_spread   = STANDARD_SCORE();
-   double skew                = SKEW(); 
    
-   double last_high           = UTIL_CANDLE_HIGH(1); 
-   double last_low            = UTIL_CANDLE_LOW(1);
    
-   double upper_bands         = UPPER_BANDS();
-   double lower_bands         = LOWER_BANDS();
-   PrintFormat("Skew: %f Spread: %f", skew, normalized_spread);
-   if ((skew > skew_trigger) && (normalized_spread > spread_trigger) && (last_high > upper_bands)) return -1;
-   if ((skew < -skew_trigger) && (normalized_spread <- spread_trigger) && (last_low < lower_bands)) return 1; 
-   return 0;
    
+   if ((features.skew_value > skew_trigger) 
+      && (features.standard_score_value > spread_trigger) 
+      && (features.last_candle_high > features.upper_bands)
+      && PreviousDayValid(SHORT)) return TRADE_SHORT;
+   
+   
+   if ((features.skew_value < -skew_trigger) 
+      && (features.standard_score_value <- spread_trigger)
+      && (features.last_candle_low < features.lower_bands)
+      && PreviousDayValid(LONG)) return TRADE_LONG;
+   
+   if (InFloatingLoss()) {
+      if ((features.skew_value <= -skew_trigger || features.standard_score_value <= -spread_trigger) && (features.last_candle_close > features.slow_upper)) return CUT_SHORT; 
+      if ((features.skew_value >= skew_trigger || features.standard_score_value >= spread_trigger) && (features.last_candle_close < features.slow_lower)) return CUT_LONG;
+   }
+   
+   return SIGNAL_NONE;
+   
+}
+
+FeatureValues  CRecurveTrade::SetLatestFeatureValues(void) {
+   
+   FEATURE.standard_score_value     = STANDARD_SCORE();
+   FEATURE.skew_value               = SKEW();
+   FEATURE.last_candle_high         = UTIL_CANDLE_HIGH(1);
+   FEATURE.last_candle_low          = UTIL_CANDLE_LOW(1);
+   FEATURE.last_candle_close        = UTIL_LAST_CANDLE_CLOSE();
+   FEATURE.upper_bands              = UPPER_BANDS();
+   FEATURE.lower_bands              = LOWER_BANDS();
+   FEATURE.extreme_upper            = EXTREME_UPPER();
+   FEATURE.extreme_lower            = EXTREME_LOWER();
+   FEATURE.slow_upper               = SLOW_UPPER();
+   FEATURE.slow_lower               = SLOW_LOWER(); 
+   
+   return FEATURE;
+
 }
 
 int            CRecurveTrade::logger(string message,string function,bool notify=false,bool debug=true) {
@@ -468,6 +605,11 @@ bool           CRecurveTrade::notification(string message) {
 
 }
 
+int            CRecurveTrade::error(string message) {
+   
+   Alert(message);
+   return 1;
+}
 
 void           CRecurveTrade::InitializeFeatureParameters(void) {
    DAILY_VOLATILITY_WINDOW            = InpDayVolWindow;
@@ -477,6 +619,7 @@ void           CRecurveTrade::InitializeFeatureParameters(void) {
    SKEW_LOOKBACK                      = InpSkewWindow;
    BBANDS_LOOKBACK                    = InpBBandsWindow;
    BBANDS_NUM_SDEV                    = InpBBandsNumSdev;
+   BBANDS_SLOW_LOOKBACK               = InpBBandsSlowWindow;
 }
 
 
@@ -525,11 +668,11 @@ double         CRecurveTrade::SKEW(int shift=1) {
    
 }
 
-double         CRecurveTrade::BBANDS(int mode, int shift =1) {
+double         CRecurveTrade::BBANDS(int mode, int num_sd = 2, int shift =1) {
    return iBands(NULL,
       InpRPTimeframe,
       BBANDS_LOOKBACK,   // bbands period
-      BBANDS_NUM_SDEV,    // num sdev 
+      num_sd,    // num sdev 
       0,    // shift
       PRICE_CLOSE, // applied price 
       mode,
@@ -537,12 +680,28 @@ double         CRecurveTrade::BBANDS(int mode, int shift =1) {
       );
 }
 
+double         CRecurveTrade::BBANDS_SLOW(int mode,int num_sd=2,int shift=1) {
+
+   return iBands(NULL, 
+      InpRPTimeframe,
+      BBANDS_SLOW_LOOKBACK,
+      num_sd,
+      0,
+      PRICE_CLOSE,
+      mode,
+      shift
+      );
+
+}
 
 string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", InpIndicatorPath, indicator_name); }
 double         CRecurveTrade::DAY_VOL(void)           { return DAILY_VOLATILITY(MODE_STD_DEV); }
 double         CRecurveTrade::DAY_PEAK_VOL(void)      { return DAILY_VOLATILITY(MODE_ROLLING_MAX_STD_DEV); }
 double         CRecurveTrade::UPPER_BANDS(void)       { return BBANDS(MODE_UPPER); }
 double         CRecurveTrade::LOWER_BANDS(void)       { return BBANDS(MODE_LOWER); }
-
+double         CRecurveTrade::EXTREME_UPPER(void)     { return BBANDS(MODE_UPPER, 3); }
+double         CRecurveTrade::EXTREME_LOWER(void)     { return BBANDS(MODE_LOWER, 3); }
+double         CRecurveTrade::SLOW_UPPER(void)        { return BBANDS_SLOW(MODE_UPPER, 3); }
+double         CRecurveTrade::SLOW_LOWER(void)        { return BBANDS_SLOW(MODE_LOWER, 3); }
 
 
