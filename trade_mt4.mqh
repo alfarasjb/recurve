@@ -1,7 +1,7 @@
 #include "definition.mqh"
 #include <MAIN/TradeOps.mqh>
-
 // FIX THIS LATER
+#include "profiles.mqh"
 
 
 
@@ -15,7 +15,7 @@ class CRecurveTrade : public CTradeOps {
       int            digits; 
       
       // INTERVALS
-      int            TRADE_INTERVALS[];
+      int            TRADE_INTERVALS[];//, TRADING_DAYS[];
       
    private:
    public: 
@@ -34,6 +34,10 @@ class CRecurveTrade : public CTradeOps {
       void           InitializeFeatureParameters();
       void           InitializeSymbolProperties();
       void           InitializeIntervals();
+      void           InitializeDays();
+      void           InitializeConfiguration();
+      
+      void           LoadConfigFromCSV();
   
       void           GenerateInterval(int &intervals[]);
   
@@ -65,6 +69,7 @@ class CRecurveTrade : public CTradeOps {
       ENUM_SIGNAL    Signal(FeatureValues &features);
       bool           EndOfDay();
       bool           ValidInterval();
+      bool           DayOfWeekInTradingDays();
       
       // OPERATIONS 
       int            Stage();
@@ -85,6 +90,11 @@ class CRecurveTrade : public CTradeOps {
       bool           InFloatingLoss();
       FeatureValues  SetLatestFeatureValues();
       bool           PreviousDayValid(ENUM_DIRECTION direction);
+      void           AddDay(int day);
+      string         IntegerArrayAsString(int &array[]);
+      string         IntervalsAsString();
+      string         DaysAsString();
+      
    
       // UTILITIES 
       int            logger(string message, string function, bool notify=false, bool debug=true);
@@ -94,15 +104,23 @@ class CRecurveTrade : public CTradeOps {
 
 
 CRecurveTrade::CRecurveTrade(void) {
+
    SYMBOL(Symbol());
    MAGIC(InpMagic);
    InitializeFeatureParameters();
    InitializeSymbolProperties();
    InitializeIntervals();
+   //InitializeDays();
+   InitializeConfiguration();
 
 }
 
-CRecurveTrade::~CRecurveTrade(void) {}
+CRecurveTrade::~CRecurveTrade(void) {
+   ArrayFree(CONFIG.trading_days);
+   ArrayFree(TRADE_INTERVALS);
+   ArrayResize(CONFIG.trading_days, 0);
+   ArrayResize(TRADE_INTERVALS, 0);
+}
 
 void           CRecurveTrade::InitializeSymbolProperties(void) {
 
@@ -113,9 +131,89 @@ void           CRecurveTrade::InitializeSymbolProperties(void) {
 
 }
 
+void           CRecurveTrade::AddDay(int day) {
+
+   int size =     ArraySize(CONFIG.trading_days);
+   ArrayResize(CONFIG.trading_days, size + 1);
+   CONFIG.trading_days[size] = day;
+
+}
+
+
+void           CRecurveTrade::LoadConfigFromCSV(void) {
+   
+   
+   
+   CProfiles *profiles  = new CProfiles(CONFIG_DIRECTORY);
+   TradeProfile   cfg   = profiles.BuildProfile(); 
+   int num_trading_days = profiles.NumTradingDays(); 
+   
+   if (num_trading_days == 0) {
+      string message = StringFormat("No Config found for %s. Using inputs.", Symbol());
+      error(message);
+      logger(message, __FUNCTION__);
+      InitializeDays(); 
+      CONFIG.low_volatility_thresh  = InpLowVolThresh;
+      CONFIG.use_pd = InpUsePrevDay;
+      delete profiles;
+      return;
+   }
+   
+   ArrayResize(CONFIG.trading_days, num_trading_days);
+   ArrayCopy(CONFIG.trading_days, cfg.trade_days); 
+   CONFIG.low_volatility_thresh = cfg.low_volatility_threshold; 
+   CONFIG.use_pd  = (bool)cfg.trade_use_pd;
+   delete profiles; 
+}
+
+void           CRecurveTrade::InitializeConfiguration(void) {
+   
+   ArrayFree(CONFIG.trading_days);
+   ArrayResize(CONFIG.trading_days, 0); 
+   switch(InpUseConfigCsv) {
+      case true:
+         // USE CONFIG CSV 
+         logger("Loading Config from CSV.", __FUNCTION__);
+         LoadConfigFromCSV();
+         break;
+      case false:  
+         logger("Loading Config from inputs.", __FUNCTION__);
+         InitializeDays();
+         CONFIG.low_volatility_thresh  = InpLowVolThresh;
+         CONFIG.use_pd = InpUsePrevDay;
+         break; 
+      
+   }
+      
+      
+      //InitializeDays(); 
+      //CONFIG.low_volatility_thresh     = InpLowVolThresh;
+
+   
+   logger(StringFormat("Num Trading Days: %i, Days: %s, Volatility: %f", ArraySize(CONFIG.trading_days), DaysAsString(), CONFIG.low_volatility_thresh), __FUNCTION__);
+}
+
+void           CRecurveTrade::InitializeDays(void) {
+   
+   if (InpLoadDaysFromStr) {
+      string result[];
+      int split = StringSplit(InpDaysString, ',', result);
+      for (int i = 0; i < split; i++) AddDay((int)result[i]);
+   }
+   else {
+      if (InpMonday)    AddDay(0);
+      if (InpTuesday)   AddDay(1);
+      if (InpWednesday) AddDay(2);
+      if (InpThursday)  AddDay(3);
+      if (InpFriday)    AddDay(4); 
+   }
+   
+   int size = ArraySize(CONFIG.trading_days);
+   logger(StringFormat("%i Trading Days Valid.", size), __FUNCTION__);
+}
 
 void           CRecurveTrade::InitializeIntervals(void) {
-
+   
    ENUM_TIMEFRAMES   current_timeframe = Period();
    if (current_timeframe != InpRPTimeframe && InpRPTimeframe != PERIOD_CURRENT) {
       logger(StringFormat("Invalid Timeframe. Selected: %i, Target: %s", Period(), EnumToString(InpRPTimeframe)), __FUNCTION__);
@@ -125,11 +223,18 @@ void           CRecurveTrade::InitializeIntervals(void) {
    int   intervals_quarter[4]    = {0, 15, 30, 45};
    int   intervals_half[2]       = {0, 30};
    int   intervals_full[1]       = {0}; 
-   switch(current_timeframe) {
-      case PERIOD_M15:     GenerateInterval(intervals_quarter);
-      case PERIOD_M30:     GenerateInterval(intervals_half);
-      case PERIOD_H1:      GenerateInterval(intervals_full);
-   }
+   if (!InpUseFrequency)
+      switch(current_timeframe) {
+         case PERIOD_M15:     GenerateInterval(intervals_quarter); break;
+         case PERIOD_M30:     GenerateInterval(intervals_half); break;
+         case PERIOD_H1:      GenerateInterval(intervals_full); break;
+      }
+   else 
+      switch(InpFrequency) {
+         case FULL:           GenerateInterval(intervals_full); break;
+         case HALF:           GenerateInterval(intervals_half); break;
+         case QUARTER:        GenerateInterval(intervals_quarter); break;
+      }
 }
 
 bool           CRecurveTrade::ValidInterval(void) {
@@ -154,6 +259,30 @@ void           CRecurveTrade::GenerateInterval(int &intervals[]) {
    int size    = ArraySize(intervals);
    ArrayResize(TRADE_INTERVALS, size);
    ArrayCopy(TRADE_INTERVALS, intervals);
+}
+
+string         CRecurveTrade::IntegerArrayAsString(int &array[]) {
+   
+   int size    = ArraySize(array);
+   
+   string intervals_string = "";
+   for (int i = 0; i < size; i++) {
+      string delimiter = i == size - 1 ? "" : ", ";
+      string data = StringFormat("%s%s", (string)array[i], delimiter);
+      intervals_string+=data;    
+   }
+   
+   return intervals_string;
+   
+
+}
+
+string         CRecurveTrade::IntervalsAsString(void) {
+   return IntegerArrayAsString(TRADE_INTERVALS);
+}
+
+string         CRecurveTrade::DaysAsString(void) {
+   return IntegerArrayAsString(CONFIG.trading_days);
 }
 
 double         CRecurveTrade::CatastrophicLossVAR(void) {
@@ -183,10 +312,16 @@ double         CRecurveTrade::CalcLot(double sl_distance) {
    /*
    lot = (var * trade_point) / (sl_ticks * tick_value)
    */
-   double var = ValueAtRisk();
-   double lot_size = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()); 
+   double var           = ValueAtRisk();
+   double lot_size      = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()); 
    
-   return NormalizeDouble(lot_size, 2); 
+   double min_lot       = UTIL_SYMBOL_MINLOT();
+   double max_lot       = UTIL_SYMBOL_MAXLOT(); 
+   
+   if (lot_size < min_lot) return min_lot;
+   if (lot_size > max_lot) return max_lot;
+   
+   return lot_size; 
 
 }
 
@@ -195,7 +330,7 @@ bool           CRecurveTrade::ValidDayVolatility(void) {
    double day_volatility      = DAY_VOL();
    double day_peak            = DAY_PEAK_VOL(); 
    //double minimum_volatility  = 0.00682; // NEED
-   double minimum_volatility  = InpLowVolThresh;  
+   double minimum_volatility  = CONFIG.low_volatility_thresh;  
    
    if (day_volatility > day_peak) return false; 
    if (day_volatility < minimum_volatility) return false;
@@ -205,9 +340,24 @@ bool           CRecurveTrade::ValidDayVolatility(void) {
 
 }
 
+bool           CRecurveTrade::DayOfWeekInTradingDays(void) {
+   int current_day_of_week    = DayOfWeek() - 1; 
+   
+   int size = ArraySize(CONFIG.trading_days);
+   for (int i = 0; i < size; i++) {
+      int day = CONFIG.trading_days[i];
+      if (current_day_of_week == day) return true; 
+   }
+   return false; 
+}
+
 bool           CRecurveTrade::ValidDayOfWeek(void) {
+   
+   if (InpLoadDaysFromStr) return DayOfWeekInTradingDays();
       
    int current_day_of_week    = DayOfWeek();
+   
+   
    
    
    switch(current_day_of_week) {
@@ -430,6 +580,7 @@ int            CRecurveTrade::CloseStackedTrade(ENUM_ORDER_TYPE order) {
       if (PosOrderType() != order) continue; 
       if (PosProfit() < 0 && !valid_interval) continue; // skip trades in profit 
       if (PosProfit() > 0 && valid_interval) continue;
+      
       int size = ArraySize(trades_to_close);
       ArrayResize(trades_to_close, size + 1);
       trades_to_close[size] = PosTicket();
@@ -521,7 +672,7 @@ bool           CRecurveTrade::ValidTradeWindow(void) {
 
 bool           CRecurveTrade::PreviousDayValid(ENUM_DIRECTION direction) {
    
-   if (!InpUsePrevDay) return true; 
+   if (!CONFIG.use_pd) return true; 
    
    switch(direction) {
       case LONG: 

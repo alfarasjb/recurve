@@ -10,6 +10,12 @@ enum ENUM_DIRECTION {
    LONG, SHORT, INVALID
 };
 
+enum ENUM_FREQUENCY {
+   QUARTER, // QUARTER - 0, 15, 30, 45
+   HALF, // HALF - 0, 30
+   FULL // FULL - 0
+};
+
 enum ENUM_SIGNAL {
    TRADE_LONG, TRADE_SHORT, CUT_LONG, CUT_SHORT, SIGNAL_NONE
 };
@@ -111,6 +117,13 @@ struct FeatureValues {
 
 } FEATURE;
 
+
+struct Configuration {
+   int      trading_days[]; 
+   double   low_volatility_thresh;
+   bool     use_pd;
+} CONFIG;
+
 /*
 z score threshold = 2.1 
 sl pips = 20 
@@ -132,6 +145,25 @@ BBANDS_LOOKBACK                    = 14;
 BBANDS_NUM_SDEV                    = 2;
 */
 
+
+input string                  InpConfigMain        = " ========== CONFIG ========== ";
+input bool                    InpUseConfigCsv      = true; // USE CONFIG CSV
+input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
+input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
+input bool                    InpRoundHourOnly     = false; // TRADE ON ROUND HOUR ONLY
+input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
+input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
+input string                  InpTradingDays       = " ========== TRADING DAYS ========== ";
+input bool                    InpLoadDaysFromStr   = true; // LOAD DAYS FROM STRING 
+input string                  InpDaysString        = "0,1,2,3,4";
+input bool                    InpMonday            = true; // 0
+input bool                    InpTuesday           = true; // 1
+input bool                    InpWednesday         = true; // 2
+input bool                    InpThursday          = true; // 3
+input bool                    InpFriday            = true; // 4
+
+
+
 input string                  InpRiskProfile       = " ========== RISK PROFILE =========="; // 
 input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
 input ENUM_ORDER_SEND_METHOD  InpRPOrderSendMethod = MODE_PENDING; // RISK PROFILE: ORDER SEND METHOD
@@ -141,7 +173,7 @@ input int                     InpRPSpreadLimit     = 10; // RISK PROFILE: SPREAD
 input int                     InpRPTradeLimit      = 2; // MAX NUMBER OF POSITIONS PER DAY
 
 input string                  InpIndicator         = " ========== INDICATOR VALUES ========== ";
-input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
+
 input int                     InpDayVolWindow      = 10; // DAILY VOLATILITY WINDOW 
 input int                     InpDayPeakVolWindow  = 90; // DAILY VOLATILITY PEAK LOOKBACK
 input int                     InpNormSpreadWindow  = 10; // NORMALIZED SPREAD LOOKBACK 
@@ -152,7 +184,7 @@ input int                     InpBBandsSlowWindow  = 100; // SLOW BBANDS LOOKBAC
 input int                     InpBBandsNumSdev     = 2;  // BBANDS NUM SDEV
 input double                  InpZThresh           = 2; // SPREAD THRESHOLD
 input double                  InpSkewThresh        = 0.6; // SKEW THRESHOLD
-input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
+
 input string                  InpIndicatorPath     = "\\b63\\statistics\\"; // INDICATOR FOLDER
 input string                  InpSkewFilename      = "skew"; // SKEW FILENAME
 input string                  InpSpreadFilename    = "z_score"; // SPREAD FILENAME
@@ -163,24 +195,22 @@ input string                  InpEntry             = " ========== ENTRY WINDOW =
 input int                     InpEntryWindowOpen   = 2; // ENTRY WINDOW OPEN
 input int                     InpEntryWindowClose  = 21; // ENTRY WINDOW CLOSE 
 input int                     InpTradeDeadline     = 22; // TRADE DEADLINE
-input bool                    InpRoundHourOnly     = true; // TRADE ON ROUND HOUR ONLY
 
+
+/*
 input string                  InpLayers            = " ========== LAYERS ========== ";
 input int                     InpNumLayers         = 2; // NUMBER OF LAYERS
 input double                  InpPrimaryAllocation = 0.6; // LOT ALLOCATION OF TOTAL VOLUME DESIGNATED FOR PRIMARY POSITION
 input ENUM_LAYER_MANAGEMENT   InpLayerManagement   = MODE_SECURE; // LAYER MANAGEMENT
 
-input string                  InpTradingDays       = " ========== TRADING DAYS ========== ";
-input bool                    InpMonday            = true; 
-input bool                    InpTuesday           = true; 
-input bool                    InpWednesday         = true; 
-input bool                    InpThursday          = true; 
-input bool                    InpFriday            = true; 
+*/
 
 input string                  InpRiskMgt           = " ========== RISK MANAGEMENT =========="; 
-input double                  InpAcctMaxRiskPct    = 1; // ACCOUNT RISK PERCENT FOR CATASTROPHIC LOSS
-input double                  InpAcctTradeRiskPct  = 0.25; // TRADE RISK PERCENT FOR LOT CALCULATION
+input double                  InpAcctMaxRiskPct    = 5; // ACCOUNT RISK PERCENT FOR CATASTROPHIC LOSS
+input double                  InpAcctTradeRiskPct  = 0.5; // TRADE RISK PERCENT FOR LOT CALCULATION
 input int                     InpMinimumSLDistance = 200; // MINIMUM SL DISTANCE (POINTS)
+
+/*
 input float                   InpAllocation        = 1; // ALLOCATION
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT
 input float                   InpTrailInterval     = 100; // TRAILING STOP INTERVAL
@@ -189,9 +219,10 @@ input float                   InpMaxLot            = 1; // MAX LOT
 input float                   InpDDScale           = 0.5; // DRAWDOWN SCALING
 input float                   InpAbsDDThresh       = 10; // ABSOLUTE DRAWDOWN THRESHOLD
 input double                  InpEquityDDThresh    = 5; // EQUITY DRAWDOWN THRESHOLD
-
+*/
 input string                  InpMisc              = " ========== MISC ==========";
 input int                     InpMagic             = 232323; // MAGIC NUMBER
+
 input bool                    InpShowUI            = false; // SHOW UI
 input bool                    InpTradeOnNews       = false; // TRADE ON NEWS
 input Source                  InpNewsSource        = R4F_WEEKLY; // NEWS SOURCE
@@ -212,31 +243,6 @@ const string   EA_ID                = "RCRV-030424-1";
 const string   FXFACTORY_DIRECTORY  = "recurve\\ff_news";
 const string   R4F_DIRECTORY        = "recurve\\r4f_news";
 const string   INDICATOR_DIRECTORY  = "\\b63\\statistics\\";
-
+const string   CONFIG_DIRECTORY     = "recurve\\config.csv";
 // DAY OF WEEK 0 - Sunday, 1, 2, 3, 4, 5, 6
 
-
-/*
-Symbol: AUDUSD WR: 0.56197 Days: [0, 1, 2, 3] Low Vol: 0.00442 Spread Thresh: 1.98719 Min: 0.00133
-Symbol: EURUSD WR: 0.58654 Days: [0, 1, 3, 4] Low Vol: 0.00522 Spread Thresh: 1.98704 Min: 0.00160
-Symbol: GBPUSD WR: 0.60247 Days: [2, 3, 4] Low Vol: 0.00719 Spread Thresh: 1.98556 Min: 0.00209
-Symbol: USDCAD WR: 0.59815 Days: [1, 2, 3, 4] Low Vol: 0.00574 Spread Thresh: 1.99082 Min: 0.00111
-Symbol: USDCHF WR: 0.59612 Days: [0, 1, 2, 3, 4] Low Vol: 0.00459 Spread Thresh: 1.99105 Min: 0.00115
-Symbol: AUDCAD WR: 0.54098 Days: [0, 2, 3] Low Vol: 0.00414 Spread Thresh: 1.98321 Min: 0.00111
-Symbol: AUDCHF WR: 0.56503 Days: [0, 1, 2, 4] Low Vol: 0.00408 Spread Thresh: 1.98752 Min: 0.00084
-Symbol: AUDNZD WR: 0.55449 Days: [0, 3, 4] Low Vol: 0.00412 Spread Thresh: 1.98715 Min: 0.00071
-Symbol: CADCHF WR: 0.58285 Days: [0, 1, 3, 4] Low Vol: 0.00383 Spread Thresh: 1.98489 Min: 0.00110
-Symbol: EURAUD WR: 0.57489 Days: [0, 1, 2, 3, 4] Low Vol: 0.00800 Spread Thresh: 1.98840 Min: 0.00223
-Symbol: EURCAD WR: 0.52645 Days: [0, 2, 4] Low Vol: 0.00680 Spread Thresh: 1.98739 Min: 0.00187
-Symbol: EURCHF WR: 0.58486 Days: [0, 3, 4] Low Vol: 0.00318 Spread Thresh: 1.99209 Min: 0.00064
-Symbol: EURGBP WR: 0.57477 Days: [0, 1, 2, 3, 4] Low Vol: 0.00376 Spread Thresh: 1.99097 Min: 0.00098
-Symbol: EURNZD WR: 0.58630 Days: [1, 2, 3] Low Vol: 0.00858 Spread Thresh: 1.98485 Min: 0.00141
-Symbol: GBPAUD WR: 0.56052 Days: [0, 1, 2, 3, 4] Low Vol: 0.01006 Spread Thresh: 1.98676 Min: 0.00286
-Symbol: GBPCAD WR: 0.57455 Days: [0, 1, 3, 4] Low Vol: 0.00878 Spread Thresh: 1.98976 Min: 0.00244
-Symbol: GBPCHF WR: 0.51812 Days: [1, 4] Low Vol: 0.00692 Spread Thresh: 1.98773 Min: 0.00139
-Symbol: GBPNZD WR: 0.54211 Days: [1, 2, 3] Low Vol: 0.01088 Spread Thresh: 1.98620 Min: 0.00275
-Symbol: NZDCAD WR: 0.56195 Days: [0, 1, 2, 3, 4] Low Vol: 0.00440 Spread Thresh: 1.98754 Min: 0.00131
-Symbol: NZDCHF WR: 0.59877 Days: [2, 3, 4] Low Vol: 0.00376 Spread Thresh: 1.98717 Min: 0.00069
-Symbol: NZDUSD WR: 0.56856 Days: [0, 1, 2, 3, 4] Low Vol: 0.00429 Spread Thresh: 1.98572 Min: 0.00107
-Symbol: USDSGD WR: 0.54213 Days: [0, 1, 3] Low Vol: 0.00389 Spread Thresh: 1.98354 Min: 0.00079
-*/
