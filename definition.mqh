@@ -10,6 +10,10 @@ enum ENUM_DIRECTION {
    LONG, SHORT, INVALID
 };
 
+enum ENUM_CONFIG_SOURCE {
+   FILE, INPUT
+};
+
 enum ENUM_FREQUENCY {
    QUARTER, // QUARTER - 0, 15, 30, 45
    HALF, // HALF - 0, 30
@@ -97,19 +101,6 @@ struct TradesActive {
 } TRADES_ACTIVE;
 
 struct FeatureValues {
-/*
-   double normalized_spread   = STANDARD_SCORE();
-   double skew                = SKEW(); 
-   
-   double last_high           = UTIL_CANDLE_HIGH(1); 
-   double last_low            = UTIL_CANDLE_LOW(1);
-   
-   double upper_bands         = UPPER_BANDS();
-   double lower_bands         = LOWER_BANDS();
-   
-   double extreme_upper       = EXTREME_UPPER();
-   double extreme_lower       = EXTREME_LOWER();
-*/
 
    double standard_score_value, skew_value, last_candle_high, last_candle_low, last_candle_close;
    
@@ -146,34 +137,16 @@ BBANDS_NUM_SDEV                    = 2;
 */
 
 
-input string                  InpConfigMain        = " ========== CONFIG ========== ";
-input bool                    InpUseConfigCsv      = true; // USE CONFIG CSV
-input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
-input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
-input bool                    InpRoundHourOnly     = false; // TRADE ON ROUND HOUR ONLY
-input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
-input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
-input string                  InpTradingDays       = " ========== TRADING DAYS ========== ";
-input bool                    InpLoadDaysFromStr   = true; // LOAD DAYS FROM STRING 
-input string                  InpDaysString        = "0,1,2,3,4";
-input bool                    InpMonday            = true; // 0
-input bool                    InpTuesday           = true; // 1
-input bool                    InpWednesday         = true; // 2
-input bool                    InpThursday          = true; // 3
-input bool                    InpFriday            = true; // 4
+input string                  InpPaths             = " ========== PATHS =========="; 
+input string                  InpIndicatorPath     = "\\b63\\statistics\\"; // INDICATOR FOLDER
+input string                  InpSkewFilename      = "skew"; // SKEW FILENAME
+input string                  InpSpreadFilename    = "z_score"; // SPREAD FILENAME
+input string                  InpSdevFilename      = "std_dev"; // VOLATILITY FILENAME
 
+input string                  InpCFGSource         = " ========== CONFIG SOURCE ==========";
+input ENUM_CONFIG_SOURCE      InpConfig            = FILE; // CONFIG SOURCE 
 
-
-input string                  InpRiskProfile       = " ========== RISK PROFILE =========="; // 
-input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
-input ENUM_ORDER_SEND_METHOD  InpRPOrderSendMethod = MODE_PENDING; // RISK PROFILE: ORDER SEND METHOD
-input ENUM_POSITIONS          InpRPPositions       = MODE_SINGLE; // RISK PROFILE: POSITIONS
-input ENUM_LAYER_ORDERS       InpRPLayerOrders     = MODE_UNIFORM; // RISK PROFILE: LAYER ORDERS
-input int                     InpRPSpreadLimit     = 10; // RISK PROFILE: SPREAD: Spread Required to use market order instead of pending order
-input int                     InpRPTradeLimit      = 2; // MAX NUMBER OF POSITIONS PER DAY
-
-input string                  InpIndicator         = " ========== INDICATOR VALUES ========== ";
-
+input string                  InpIndicator         = " ========== FEATURE VALUES ========== ";
 input int                     InpDayVolWindow      = 10; // DAILY VOLATILITY WINDOW 
 input int                     InpDayPeakVolWindow  = 90; // DAILY VOLATILITY PEAK LOOKBACK
 input int                     InpNormSpreadWindow  = 10; // NORMALIZED SPREAD LOOKBACK 
@@ -185,16 +158,39 @@ input int                     InpBBandsNumSdev     = 2;  // BBANDS NUM SDEV
 input double                  InpZThresh           = 2; // SPREAD THRESHOLD
 input double                  InpSkewThresh        = 0.6; // SKEW THRESHOLD
 
-input string                  InpIndicatorPath     = "\\b63\\statistics\\"; // INDICATOR FOLDER
-input string                  InpSkewFilename      = "skew"; // SKEW FILENAME
-input string                  InpSpreadFilename    = "z_score"; // SPREAD FILENAME
-input string                  InpSdevFilename      = "std_dev"; // VOLATILITY FILENAME
-
 
 input string                  InpEntry             = " ========== ENTRY WINDOW =========="; //
 input int                     InpEntryWindowOpen   = 2; // ENTRY WINDOW OPEN
 input int                     InpEntryWindowClose  = 21; // ENTRY WINDOW CLOSE 
 input int                     InpTradeDeadline     = 22; // TRADE DEADLINE
+
+input string                  InpRiskMgt           = " ========== RISK MANAGEMENT =========="; 
+input double                  InpAcctMaxRiskPct    = 5; // ACCOUNT RISK PERCENT FOR CATASTROPHIC LOSS
+input double                  InpAcctTradeRiskPct  = 0.5; // TRADE RISK PERCENT FOR LOT CALCULATION
+input int                     InpMinimumSLDistance = 200; // MINIMUM SL DISTANCE (POINTS)
+
+
+input string                  InpConfigMain        = " ========== SYMBOL CONFIG ========== ";
+//input bool                    InpUseConfigCsv      = true; // USE CONFIG CSV
+input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
+input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
+input bool                    InpRoundHourOnly     = false; // TRADE ON ROUND HOUR ONLY
+input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
+input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
+input int                     InpMagic             = 232323; // MAGIC NUMBER
+input string                  InpTradingDays       = " ========== TRADING DAYS ========== ";
+input string                  InpDaysString        = "0,1,2,3,4";
+
+
+input string                  InpRiskProfile       = " ========== RISK PROFILE =========="; // 
+input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
+/*
+input ENUM_ORDER_SEND_METHOD  InpRPOrderSendMethod = MODE_PENDING; // RISK PROFILE: ORDER SEND METHOD
+input ENUM_POSITIONS          InpRPPositions       = MODE_SINGLE; // RISK PROFILE: POSITIONS
+input ENUM_LAYER_ORDERS       InpRPLayerOrders     = MODE_UNIFORM; // RISK PROFILE: LAYER ORDERS
+input int                     InpRPSpreadLimit     = 10; // RISK PROFILE: SPREAD: Spread Required to use market order instead of pending order
+input int                     InpRPTradeLimit      = 2; // MAX NUMBER OF POSITIONS PER DAY*/
+
 
 
 /*
@@ -205,10 +201,6 @@ input ENUM_LAYER_MANAGEMENT   InpLayerManagement   = MODE_SECURE; // LAYER MANAG
 
 */
 
-input string                  InpRiskMgt           = " ========== RISK MANAGEMENT =========="; 
-input double                  InpAcctMaxRiskPct    = 5; // ACCOUNT RISK PERCENT FOR CATASTROPHIC LOSS
-input double                  InpAcctTradeRiskPct  = 0.5; // TRADE RISK PERCENT FOR LOT CALCULATION
-input int                     InpMinimumSLDistance = 200; // MINIMUM SL DISTANCE (POINTS)
 
 /*
 input float                   InpAllocation        = 1; // ALLOCATION
@@ -221,8 +213,6 @@ input float                   InpAbsDDThresh       = 10; // ABSOLUTE DRAWDOWN TH
 input double                  InpEquityDDThresh    = 5; // EQUITY DRAWDOWN THRESHOLD
 */
 input string                  InpMisc              = " ========== MISC ==========";
-input int                     InpMagic             = 232323; // MAGIC NUMBER
-
 input bool                    InpShowUI            = false; // SHOW UI
 input bool                    InpTradeOnNews       = false; // TRADE ON NEWS
 input Source                  InpNewsSource        = R4F_WEEKLY; // NEWS SOURCE
@@ -244,5 +234,7 @@ const string   FXFACTORY_DIRECTORY  = "recurve\\ff_news";
 const string   R4F_DIRECTORY        = "recurve\\r4f_news";
 const string   INDICATOR_DIRECTORY  = "\\b63\\statistics\\";
 const string   CONFIG_DIRECTORY     = "recurve\\config.csv";
+const string   SETTINGS_DIRECTORY   = "recurve\\settings\\";
+const string   SYMBOLS_DIRECTORY    = "recurve\\symbols\\";
 // DAY OF WEEK 0 - Sunday, 1, 2, 3, 4, 5, 6
 

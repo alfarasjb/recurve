@@ -1,62 +1,44 @@
-//+------------------------------------------------------------------+
-//|                                                      handler.mq4 |
-//|                             Copyright 2023, Jay Benedict Alfaras |
-//|                                             https://www.mql5.com |
-//+------------------------------------------------------------------+
+
 #property copyright "Copyright 2023, Jay Benedict Alfaras"
-#property link      "https://www.mql5.com"
 #property version   "1.00"
 #property strict
 
 #include "profiles.mqh"
 #include <B63/ui/CInterface.mqh>
 #include <B63/Generic.mqh>
-const string   CONFIG_DIRECTORY     = "recurve\\config.csv";
+
+
+struct Charts {
+   string         chart_symbol; 
+   long           chart_id; 
+   ENUM_TIMEFRAMES chart_period;
+} CHARTS;
+
+Charts   EXTERNAL_CHARTS[]; 
+
+const string   CONFIG_DIRECTORY     = "recurve\\csv\\config.csv";
+
 CInterface ui;
 
 input string      InpTemplate = "DEF.tpl";
+
 string SYMBOLS[];
-//+------------------------------------------------------------------+
-//| Expert initialization function                                   |
-//+------------------------------------------------------------------+
+
+
 int OnInit()
   {
-   // LOAD 
-   //LoadCharts();
-   //ViewChart();
-   //Print("First: ", ChartSymbol(ChartFirst()));
-   long first = ChartFirst();
-   //InitializeExternalCharts(); 
-   //BuildExternalCharts(first);
-   //LoadCharts();
-   //ExternalCharts();
    LoadSymbols();
    DrawButton();
-   /*
-   long currChart,prevChart=ChartFirst();
-   int i=0,limit=100;
-   Print("ChartFirst =",ChartSymbol(prevChart)," ID =",prevChart);
-   while(i<limit)// We have certainly not more than 100 open charts
-     {
-      currChart=ChartNext(prevChart); // Get the new chart ID by using the previous chart ID
-      if(currChart<0) break;          // Have reached the end of the chart list
-      Print(i,ChartSymbol(currChart)," ID =",currChart);
-      prevChart=currChart;// let's save the current chart ID for the ChartNext()
-      i++;// Do not forget to increase the counter
-     }*/
    return(INIT_SUCCEEDED);
   }
-//+------------------------------------------------------------------+
-//| Expert deinitialization function                                 |
-//+------------------------------------------------------------------+
+  
 void OnDeinit(const int reason)
   {
 //---
    
   }
-//+------------------------------------------------------------------+
-//| Expert tick function                                             |
-//+------------------------------------------------------------------+
+  
+  
 void OnTick()
   {
 //---
@@ -86,13 +68,16 @@ void OnChartEvent(const int id, const long &lparam, const double &daram, const s
    }
 }
 
-void DrawButton(){
+
+void     DrawButton() {
    ui.CButton("reload", 10, 40, 75, 25, 10, "Calibri", "RELOAD");
    ui.CButton("run", 10, 70, 75, 25, 10, "Calibri", "RUN");
    ui.CButton("clear", 10, 100, 75, 25, 10, "Calibri", "CLEAR");
 }
 
-void LoadSymbols() {
+
+void     LoadSymbols() {
+
    CProfiles *profiles  = new CProfiles(CONFIG_DIRECTORY);
    TradeProfile   cfg   = profiles.BuildProfile();
    
@@ -100,37 +85,36 @@ void LoadSymbols() {
    ArrayResize(SYMBOLS, num_symbols);
    ArrayCopy(SYMBOLS, profiles.SYMBOLS);
    delete profiles; 
+   
 }
   
-struct Charts {
-   string         chart_symbol; 
-   long           chart_id; 
-   ENUM_TIMEFRAMES chart_period;
-} CHARTS;
 
-Charts   EXTERNAL_CHARTS[]; 
 
-void InitializeExternalCharts() {
+
+void     InitializeExternalCharts() {
    ArrayFree(EXTERNAL_CHARTS);
    ArrayResize(EXTERNAL_CHARTS, 0);
 }
 
-void ExternalCharts() {
+
+void     ExternalCharts() {
+
    int size = ArraySize(EXTERNAL_CHARTS);
    PrintFormat("%i Charts Open", size);
+   
    for (int i = 0; i < size; i++) {
       Charts   chart = EXTERNAL_CHARTS[i];
       PrintFormat("ID: %s, Symbol: %s, Period: %s", (string)chart.chart_id, chart.chart_symbol, EnumToString(chart.chart_period));
    }
 }
 
-void AddToExternalCharts(Charts &chart) {
+void     AddToExternalCharts(Charts &chart) {
    int size = ArraySize(EXTERNAL_CHARTS);
    ArrayResize(EXTERNAL_CHARTS,size+1);
    EXTERNAL_CHARTS[size] = chart;
 }
 
-void ClearCharts() {
+void     ClearCharts() {
    long first = ChartFirst();
    BuildExternalCharts(first);
    int num_charts = ArraySize(EXTERNAL_CHARTS);
@@ -145,7 +129,7 @@ void ClearCharts() {
    InitializeExternalCharts();
 }
 
-void BuildExternalCharts(long chart_id) {
+void     BuildExternalCharts(long chart_id) {
    if (chart_id < 0) return; 
    long  next = ChartNext(chart_id); 
    long  current = ChartID();
@@ -164,12 +148,12 @@ void BuildExternalCharts(long chart_id) {
    
 }
 
-void ViewChart() {
+void     ViewChart() {
    int current_id = ChartID(); 
    //string symbol = ChartSymbol(current);
    Print(current_id);
 }
-void LoadCharts() {
+void     LoadCharts() {
    //string symbols[] = {"USDCAD","AUDUSD"};
    int num_symbols = ArraySize(SYMBOLS);
    for(int i = 0; i < num_symbols; i++) {

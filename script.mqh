@@ -6,21 +6,16 @@
 #include <B63/CExport.mqh>
 #include <MAIN/Loader.mqh> 
 #include "forex_factory.mqh"
-
+#include "features.mqh"
 
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
 
-
 int OnInit() {
    /*
    CHECK INDICATOR PATH (CALL VALUES ONCE)
    */
-   
-   //Print(cfg.trade_symbol, cfg.low_volatility_threshold);
-   // APPLY TEMPLATE
-   //ApplyTemplate();
    
    recurve_trade.InitializeFeatureParameters();
    recurve_trade.InitializeSymbolProperties();
@@ -55,7 +50,7 @@ MAIN LOOP
 void     ShowComments() {
    
    Comment(
-      //StringFormat("Day Vol Window: %i", InpDayVolWindow),
+      StringFormat("Day Vol Window: %i", SETTINGS.day_vol_lookback),
       //StringFormat("\nPeak Day Vol Window: %i", InpDayPeakVolWindow),
       //StringFormat("\nSpread Window: %i", InpNormSpreadWindow),
       //StringFormat("\nNorm MA Window: %i", InpNormMAWindow),
@@ -80,18 +75,5 @@ void     ShowComments() {
       StringFormat("\nPrev Day Valid Long: %s", (string)recurve_trade.PreviousDayValid(LONG)),
       StringFormat("\nPrev Day Valid Short: %s", (string)recurve_trade.PreviousDayValid(SHORT))
    );
-
-}
-
-void        ApplyTemplate() {
-   // not working properly
-   string template_path = "recurve_aggressive\\USDCAD.tpl";
-   if (!FileIsExist(template_path)) {
-      PrintFormat("File not found: %s", template_path);
-      return;
-   }
-   string file_path = StringFormat("\\Files\\%s", template_path);
-   if (ChartApplyTemplate(0, file_path)) Print("Template applied successfully."); 
-   else PrintFormat("Failed to apply template: %s. Error Code: %i", template_path, GetLastError());
 
 }
