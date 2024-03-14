@@ -27,15 +27,16 @@ string SYMBOLS[];
 
 int OnInit()
   {
-   LoadSymbols();
    DrawButton();
+   LoadSymbols();
+   
    return(INIT_SUCCEEDED);
   }
   
 void OnDeinit(const int reason)
   {
 //---
-   
+   ObjectsDeleteAll(0, -1, -1); 
   }
   
   
@@ -46,18 +47,21 @@ void OnTick()
   }
   
 void OnChartEvent(const int id, const long &lparam, const double &daram, const string &sparam){
+   Print("SPARAM: ", sparam); 
    if (CHARTEVENT_OBJECT_CLICK){
-      if (sparam == "run") {
+      if (sparam == "runbt") {
+         Print("RUN PRESSED");
          InitializeExternalCharts(); 
          LoadCharts(); 
          ExternalCharts();
          resetObject(sparam);
       }
-      if (sparam == "clear") {
+      if (sparam == "clearbt") {
          ClearCharts();
          resetObject(sparam);
       }
-      if (sparam == "reload"){
+      if (sparam == "reloadbt"){
+         Print("RELOAD PRESSED"); 
          ClearCharts();
          InitializeExternalCharts();
          LoadCharts();
@@ -70,9 +74,9 @@ void OnChartEvent(const int id, const long &lparam, const double &daram, const s
 
 
 void     DrawButton() {
-   ui.CButton("reload", 10, 40, 75, 25, 10, "Calibri", "RELOAD");
-   ui.CButton("run", 10, 70, 75, 25, 10, "Calibri", "RUN");
-   ui.CButton("clear", 10, 100, 75, 25, 10, "Calibri", "CLEAR");
+   ui.CButton("reloadbt", 10, 40, 75, 25, 10, "Calibri", "RELOAD");
+   ui.CButton("runbt", 10, 70, 75, 25, 10, "Calibri", "RUN");
+   ui.CButton("clearbt", 10, 100, 75, 25, 10, "Calibri", "CLEAR");
 }
 
 

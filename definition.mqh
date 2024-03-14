@@ -1,6 +1,14 @@
 
 #include <MAIN/CalendarDownloader.mqh> 
 #include <MAIN/utilities.mqh>
+#include <Controls/Defines.mqh> 
+#include <Controls/Dialog.mqh>
+#include <Controls/Button.mqh>
+#include <Controls/Label.mqh>
+// ========== DEFINES ========== // 
+#undef   CONTROLS_FONT_SIZE 
+
+#define  CONTROLS_FONT_SIZE      8 
 
 
 
@@ -113,7 +121,21 @@ struct Configuration {
    int      trading_days[]; 
    double   low_volatility_thresh;
    bool     use_pd;
+   
+   string   days_string, intervals_string; 
 } CONFIG;
+
+struct FeatureConfiguration {
+   int            DAILY_VOLATILITY_WINDOW, DAILY_VOLATILITY_PEAK_LOOKBACK, NORMALIZED_SPREAD_LOOKBACK, NORMALIZED_SPREAD_MA_LOOKBACK, SKEW_LOOKBACK, BBANDS_LOOKBACK, BBANDS_NUM_SDEV, BBANDS_SLOW_LOOKBACK; 
+   double         SPREAD_THRESHOLD, SKEW_THRESHOLD;
+   
+   int            ENTRY_WINDOW_OPEN, ENTRY_WINDOW_CLOSE, TRADE_DEADLINE; 
+   
+   double         CATLOSS, RPT;
+   
+   int            MIN_SL_DISTANCE; 
+      
+} FEATURE_CONFIG;
 
 /*
 z score threshold = 2.1 

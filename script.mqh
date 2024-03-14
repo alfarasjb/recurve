@@ -7,22 +7,27 @@
 #include <MAIN/Loader.mqh> 
 #include "forex_factory.mqh"
 #include "features.mqh"
-
+#include "Panel.mqh"
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
+//CInfoPanel                 ExtDialog; 
 
 int OnInit() {
    /*
    CHECK INDICATOR PATH (CALL VALUES ONCE)
    */
    
+   recurve_trade.Init(); 
+   /*
    recurve_trade.InitializeFeatureParameters();
    recurve_trade.InitializeSymbolProperties();
    recurve_trade.InitializeIntervals();
    //recurve_trade.InitializeDays();
    recurve_trade.InitializeConfiguration();
-   
+   */
+   //if (!ExtDialog.Create(0, "Info", 0,  40, 40, 250, 600)) return INIT_FAILED;
+   //ExtDialog.Run(); 
    if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
    ShowComments();
    return INIT_SUCCEEDED;
@@ -30,7 +35,10 @@ int OnInit() {
 }
 
 
-void OnDeinit(const int reason) {}
+void OnDeinit(const int reason) {
+   ObjectsDeleteAll(0, -1, -1); 
+   //ExtDialog.Destroy(reason); 
+}
 
 void OnTick() {
 /*
@@ -77,3 +85,12 @@ void     ShowComments() {
    );
 
 }
+
+
+void OnChartEvent(const int id,         // event ID  
+                  const long& lparam,   // event parameter of the long type
+                  const double& dparam, // event parameter of the double type
+                  const string& sparam) // event parameter of the string type
+  {
+   //ExtDialog.ChartEvent(id,lparam,dparam,sparam);
+  }
