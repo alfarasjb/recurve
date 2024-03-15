@@ -9,6 +9,8 @@ struct Settings {
    double   catloss, rpt; 
    
    int      min_sl_distance;
+   
+   string   indicator_path, skew_filename, spread_filename, sdev_filename;
 } SETTINGS; 
 
 struct SymbolConfig {
@@ -112,6 +114,10 @@ bool Parse(string key, string value) {
    else if (key == "catloss")                   SETTINGS.catloss              = StringToDouble(value);
    else if (key == "rpt")                       SETTINGS.rpt                  = StringToDouble(value);
    else if (key == "min_sl_distance")           SETTINGS.min_sl_distance      = StringToInteger(value); 
+   else if (key == "indicator_path")            SETTINGS.indicator_path       = value;
+   else if (key == "skew_filename")             SETTINGS.skew_filename        = value;
+   else if (key == "spread_filename")           SETTINGS.spread_filename      = value;
+   else if (key == "sdev_filename")             SETTINGS.sdev_filename        = value; 
    return true; 
 }
 

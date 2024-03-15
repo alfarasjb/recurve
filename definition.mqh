@@ -135,6 +135,8 @@ struct FeatureConfiguration {
    
    int            MIN_SL_DISTANCE; 
       
+      
+   string         INDICATOR_PATH, SKEW_FILENAME, SPREAD_FILENAME, SDEV_FILENAME;
 } FEATURE_CONFIG;
 
 /*
@@ -158,16 +160,17 @@ BBANDS_LOOKBACK                    = 14;
 BBANDS_NUM_SDEV                    = 2;
 */
 
-
+/*
 input string                  InpPaths             = " ========== PATHS =========="; 
 input string                  InpIndicatorPath     = "\\b63\\statistics\\"; // INDICATOR FOLDER
 input string                  InpSkewFilename      = "skew"; // SKEW FILENAME
 input string                  InpSpreadFilename    = "z_score"; // SPREAD FILENAME
 input string                  InpSdevFilename      = "std_dev"; // VOLATILITY FILENAME
-
+*/
 input string                  InpCFGSource         = " ========== CONFIG SOURCE ==========";
 input ENUM_CONFIG_SOURCE      InpConfig            = FILE; // CONFIG SOURCE 
 
+/*
 input string                  InpIndicator         = " ========== FEATURE VALUES ========== ";
 input int                     InpDayVolWindow      = 10; // DAILY VOLATILITY WINDOW 
 input int                     InpDayPeakVolWindow  = 90; // DAILY VOLATILITY PEAK LOOKBACK
@@ -190,7 +193,7 @@ input string                  InpRiskMgt           = " ========== RISK MANAGEMEN
 input double                  InpAcctMaxRiskPct    = 5; // ACCOUNT RISK PERCENT FOR CATASTROPHIC LOSS
 input double                  InpAcctTradeRiskPct  = 0.5; // TRADE RISK PERCENT FOR LOT CALCULATION
 input int                     InpMinimumSLDistance = 200; // MINIMUM SL DISTANCE (POINTS)
-
+*/
 
 input string                  InpConfigMain        = " ========== SYMBOL CONFIG ========== ";
 //input bool                    InpUseConfigCsv      = true; // USE CONFIG CSV

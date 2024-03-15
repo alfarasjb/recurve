@@ -207,9 +207,13 @@ void           CRecurveTrade::LoadSettingsFromFile(void) {
    FEATURE_CONFIG.CATLOSS                            = SETTINGS.catloss;
    FEATURE_CONFIG.RPT                                = SETTINGS.rpt; 
    FEATURE_CONFIG.MIN_SL_DISTANCE                    = SETTINGS.min_sl_distance; 
+   FEATURE_CONFIG.INDICATOR_PATH                     = SETTINGS.indicator_path;
+   FEATURE_CONFIG.SKEW_FILENAME                      = SETTINGS.skew_filename;
+   FEATURE_CONFIG.SPREAD_FILENAME                    = SETTINGS.spread_filename;
+   FEATURE_CONFIG.SDEV_FILENAME                      = SETTINGS.sdev_filename; 
    delete feature;
 }
-
+/*
 void           CRecurveTrade::LoadSettingsFromInput(void) {
    FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW            = InpDayVolWindow;
    FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK     = InpDayPeakVolWindow;
@@ -228,8 +232,10 @@ void           CRecurveTrade::LoadSettingsFromInput(void) {
    FEATURE_CONFIG.RPT                                = InpAcctTradeRiskPct;
    FEATURE_CONFIG.MIN_SL_DISTANCE                    = InpMinimumSLDistance; 
 }
-
+*/
 void           CRecurveTrade::InitializeFeatureParameters(void) {
+   LoadSettingsFromFile(); 
+   /*
    switch (InpConfig) {
       case FILE:
          LoadSettingsFromFile();
@@ -237,7 +243,7 @@ void           CRecurveTrade::InitializeFeatureParameters(void) {
       case INPUT:
          LoadSettingsFromInput();
          break;
-   }
+   }*/
 }
 
 
@@ -810,7 +816,7 @@ double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift =
 
    return iCustom(NULL, 
       PERIOD_D1, 
-      indicator_path(InpSdevFilename), // path 
+      indicator_path(FEATURE_CONFIG.SDEV_FILENAME), // path 
       FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW,   // sdev window
       FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK,   // max window
       0,    // shift
@@ -824,7 +830,7 @@ double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift =
 double         CRecurveTrade::STANDARD_SCORE(int shift=1) {
    return iCustom(NULL,
       InpRPTimeframe, 
-      indicator_path(InpSpreadFilename),
+      indicator_path(FEATURE_CONFIG.SPREAD_FILENAME),
       FEATURE_CONFIG.NORMALIZED_SPREAD_LOOKBACK,   // normalization window 
       FEATURE_CONFIG.NORMALIZED_SPREAD_MA_LOOKBACK,   // moving average window 
       0,    // shift
@@ -838,7 +844,7 @@ double         CRecurveTrade::SKEW(int shift=1) {
 
    return iCustom(NULL,
       InpRPTimeframe,
-      indicator_path(InpSkewFilename),
+      indicator_path(FEATURE_CONFIG.SKEW_FILENAME),
       FEATURE_CONFIG.SKEW_LOOKBACK,   // window
       0,    // shift
       0,    // buffer
@@ -873,7 +879,7 @@ double         CRecurveTrade::BBANDS_SLOW(int mode,int num_sd=2,int shift=1) {
 
 }
 
-string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", InpIndicatorPath, indicator_name); }
+string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", FEATURE_CONFIG.INDICATOR_PATH, indicator_name); }
 double         CRecurveTrade::DAY_VOL(void)           { return DAILY_VOLATILITY(MODE_STD_DEV); }
 double         CRecurveTrade::DAY_PEAK_VOL(void)      { return DAILY_VOLATILITY(MODE_ROLLING_MAX_STD_DEV); }
 double         CRecurveTrade::UPPER_BANDS(void)       { return BBANDS(MODE_UPPER); }

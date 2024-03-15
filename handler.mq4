@@ -15,12 +15,11 @@ struct Charts {
 } CHARTS;
 
 Charts   EXTERNAL_CHARTS[]; 
-
-const string   CONFIG_DIRECTORY     = "recurve\\csv\\config.csv";
-
+input string      InpConfigDirectory   = "recurve\\csv\\config.csv";
+input string      InpTemplate          = "DEF.tpl";
 CInterface ui;
 
-input string      InpTemplate = "DEF.tpl";
+
 
 string SYMBOLS[];
 
@@ -82,7 +81,7 @@ void     DrawButton() {
 
 void     LoadSymbols() {
 
-   CProfiles *profiles  = new CProfiles(CONFIG_DIRECTORY);
+   CProfiles *profiles  = new CProfiles(InpConfigDirectory);
    TradeProfile   cfg   = profiles.BuildProfile();
    
    int num_symbols = ArraySize(profiles.SYMBOLS);
