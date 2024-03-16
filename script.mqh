@@ -11,33 +11,40 @@
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
-//CInfoPanel                 ExtDialog; 
+//-- PANELS ARE TEMPORARY
+CInfoPanel                 ExtDialog; 
+CTradePanel                TradeDialog; 
+CFeaturePanel              FeatureDialog; 
 
 int OnInit() {
-   /*
-   CHECK INDICATOR PATH (CALL VALUES ONCE)
-   */
    
    recurve_trade.Init(); 
-   /*
-   recurve_trade.InitializeFeatureParameters();
-   recurve_trade.InitializeSymbolProperties();
-   recurve_trade.InitializeIntervals();
-   //recurve_trade.InitializeDays();
-   recurve_trade.InitializeConfiguration();
-   */
-   //if (!ExtDialog.Create(0, "Info", 0,  40, 40, 250, 600)) return INIT_FAILED;
-   //ExtDialog.Run(); 
+   
+   //--- TEMPORARY 
+   FeatureDialog.Update(); 
+   if (!ExtDialog.Create(0, "Info", 0,  5, 5, 150, 400))          return INIT_FAILED;
+   if (!TradeDialog.Create(0, "Risk", 0, 160, 5, 350, 150))       return INIT_FAILED;
+   if (!FeatureDialog.Create(0, "Feature", 0, 360, 5, 560, 150))  return INIT_FAILED;
+   ExtDialog.Run(); 
+   TradeDialog.Run(); 
+   FeatureDialog.Run(); 
    if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
-   ShowComments();
+   //ShowComments();
    return INIT_SUCCEEDED;
 
 }
 
 
 void OnDeinit(const int reason) {
+
+   CExport  *export_hist   = new CExport("recurve_backtest"); 
+   if (IsTesting()) export_hist.ExportAccountHistory();
+   delete export_hist;
+   
    ObjectsDeleteAll(0, -1, -1); 
-   //ExtDialog.Destroy(reason); 
+   ExtDialog.Destroy(reason); 
+   TradeDialog.Destroy(reason); 
+   FeatureDialog.Destroy(reason); 
 }
 
 void OnTick() {
@@ -45,52 +52,26 @@ void OnTick() {
 MAIN LOOP 
 */
    if (IsNewCandle()) {
-      //int holidays = calendar_loader.LoadDatesToday(NEUTRAL); // FOR BACKTESTING 
+      int holidays = calendar_loader.LoadDatesToday(NEUTRAL); // FOR BACKTESTING 
+      if (holidays > 0) PrintFormat("Num Holidays: %i", holidays);
+      if (holidays == 0) recurve_trade.Stage(); 
       //int holidays_r4f = news_events.GetNewsSymbolToday(); // FOR LIVE 
       //PrintFormat("Num Holidays: %i", holidays_r4f); 
-      int stage_value = recurve_trade.Stage(); 
-      //recurve_trade.logger(StringFormat("Stage Value: %i", stage_value), __FUNCTION__);
+      
+      
       if (recurve_trade.EndOfDay()) recurve_trade.CloseOrder();
-      ShowComments();
+      //ShowComments();
+      FeatureDialog.Update(); 
+      if (calendar_loader.IsNewYear()) calendar_loader.LoadCSV(HIGH); 
    }
 }
-
-void     ShowComments() {
-   
-   Comment(
-      StringFormat("Day Vol Window: %i", SETTINGS.day_vol_lookback),
-      //StringFormat("\nPeak Day Vol Window: %i", InpDayPeakVolWindow),
-      //StringFormat("\nSpread Window: %i", InpNormSpreadWindow),
-      //StringFormat("\nNorm MA Window: %i", InpNormMAWindow),
-      //StringFormat("\nSkew Window: %i", InpSkewWindow), 
-      //StringFormat("\nBBands Window: %i", InpBBandsWindow),
-      //StringFormat("\nBBands SDEV: %f", InpBBandsNumSdev),
-      //StringFormat("\nZ Thresh: %f", InpZThresh),
-      //StringFormat("\nSkew Thresh: %f", InpSkewThresh),
-      
-      StringFormat("\n\nVAR: %f", recurve_trade.ValueAtRisk()),
-      StringFormat("\nCatastrophic VAR: %f", recurve_trade.CatastrophicLossVAR()),
-      StringFormat("\n\nSkew: %f", recurve_trade.SKEW()),
-      StringFormat("\nSpread: %f", recurve_trade.STANDARD_SCORE()),
-      StringFormat("\nIntervals: %s", recurve_trade.IntervalsAsString()),
-      StringFormat("\nDays: %s", recurve_trade.DaysAsString()),
-      StringFormat("\n\nDay Vol: %f", recurve_trade.DAY_VOL()),
-      StringFormat("\nLow Vol Thresh: %f", CONFIG.low_volatility_thresh),
-      StringFormat("\nDay Peak: %f", recurve_trade.DAY_PEAK_VOL()),
-      StringFormat("\nValid Day Vol: %s", (string)recurve_trade.ValidDayVolatility()),
-      StringFormat("\nValid Day of Week: %s", (string)recurve_trade.ValidDayOfWeek()),
-      StringFormat("\n\nUse Prev Day: %s", (string)CONFIG.use_pd),
-      StringFormat("\nPrev Day Valid Long: %s", (string)recurve_trade.PreviousDayValid(LONG)),
-      StringFormat("\nPrev Day Valid Short: %s", (string)recurve_trade.PreviousDayValid(SHORT))
-   );
-
-}
-
 
 void OnChartEvent(const int id,         // event ID  
                   const long& lparam,   // event parameter of the long type
                   const double& dparam, // event parameter of the double type
                   const string& sparam) // event parameter of the string type
   {
-   //ExtDialog.ChartEvent(id,lparam,dparam,sparam);
+   ExtDialog.ChartEvent(id,lparam,dparam,sparam);
+   TradeDialog.ChartEvent(id, lparam, dparam, sparam); 
+   FeatureDialog.ChartEvent(id, lparam, dparam, sparam); 
   }

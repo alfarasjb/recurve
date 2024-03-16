@@ -15,7 +15,7 @@ struct Settings {
 
 struct SymbolConfig {
    int      trade_days[], trade_use_pd;
-   double   low_volatility_threshold;
+   double   low_volatility_threshold, sl;
 } SYMBOL_CONFIG;
 
 typedef  bool (*TParse) (string, string);
@@ -125,6 +125,7 @@ bool  ParseSymbolConfig(string key, string value) {
    if (key == "" || value == "") return true; 
    else if (key == "low_vol_threshold")   SYMBOL_CONFIG.low_volatility_threshold = StringToDouble(value);
    else if (key == "use_pd")              SYMBOL_CONFIG.trade_use_pd             = StringToInteger(value);
+   else if (key == "sl")                  SYMBOL_CONFIG.sl                       = StringToDouble(value);
    else if (key == "days") {
       string result[];
       int split = StringSplit(value, ',', result);

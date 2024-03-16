@@ -1,3 +1,6 @@
+/*
+TEMPORARY SETUP
+*/
 
 #include "definition.mqh"
 
@@ -12,15 +15,14 @@ class CInfoPanel : public CAppDialog {
                      ~CInfoPanel();
                
                CLabel   day_vol_lbl, peak_vol_lbl, spread_lbl, spread_ma_lbl, skew_lbl, bbands_lbl, bbands_sdev_lbl, bbands_slow_lbl, spread_thresh_lbl, skew_thresh_lbl, window_open_lbl, window_close_lbl, deadline_lbl, catloss_lbl, rpt_lbl, min_sl_dist_lbl; 
-               CLabel   days_lbl, intervals_lbl, low_vol_lbl, use_pd_lbl; 
+               CLabel   days_lbl, intervals_lbl, low_vol_lbl, use_pd_lbl, sl_lbl; 
       
       //--- create
       virtual  bool  Create(const long chart, const string name, const int subwin, const int x1, const int y1, const int x2, const int y2); 
+      virtual  void  Minimize(void); 
       
       //--- chart event handler 
       //virtual  bool  OnEvent(const int id, const long &lparam, const double &dparam, const string &sparam); 
-               bool  Draw(); 
-               bool  DrawFeatureConfiguration(); 
       
       template <typename T>   bool  LabelCreate(CLabel &lbl, string key, T value); 
       template <typename T>   bool  RowCreate(CLabel &lbl, string key, T value, int row_number); 
@@ -54,6 +56,7 @@ bool        CInfoPanel::Create(const long chart,const string name,const int subw
    if (!RowCreate(intervals_lbl, "intervals", CONFIG.intervals_string, 19)) return false;
    if (!RowCreate(low_vol_lbl, "low_vol", CONFIG.low_volatility_thresh, 20)) return false; 
    if (!RowCreate(use_pd_lbl, "use_pd", CONFIG.use_pd, 21)) return false; 
+   if (!RowCreate(sl_lbl, "sl", CONFIG.sl, 22)) return false; 
    return true; 
 }
 
@@ -87,3 +90,136 @@ bool        CInfoPanel::RowCreate(CLabel &lbl,string key,T value,int row_number)
 }
 
 //bool        CInfoPanel::OnEvent(const int id,const long &lparam,const double &dparam,const string &sparam) {}
+
+void        CInfoPanel::Minimize(void) {
+   long chart_height = ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
+   long chart_width  = ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0); 
+   int height  = MathAbs(m_min_rect.top - m_min_rect.bottom); 
+   int lower_indent  = 5;
+   m_min_rect.top = chart_height - (int)height - lower_indent; 
+   m_min_rect.bottom = m_min_rect.top + height;
+   CAppDialog::Minimize();
+}
+
+
+class CTradePanel : public CAppDialog {
+   public:
+      CTradePanel();
+      ~CTradePanel();
+      
+      CLabel   var_lbl, cat_var_lbl, day_vol_lbl, day_of_week_lbl, long_lbl, short_lbl; 
+      //--- create
+      virtual  bool  Create(const long chart, const string name, const int subwin, const int x1, const int y1, const int x2, const int y2); 
+      virtual  void  Minimize(void); 
+      
+      template <typename T>   bool  RowCreate(CLabel &lbl, string key, T value, int row_number); 
+};
+
+CTradePanel::CTradePanel(void) {}
+
+CTradePanel::~CTradePanel(void) {} 
+
+bool        CTradePanel::Create(const long chart,const string name,const int subwin,const int x1,const int y1,const int x2,const int y2) {
+   if (!CAppDialog::Create(chart, name, subwin, x1, y1, x2, y2)) return false;  
+   if (!RowCreate(var_lbl, "var", RISK.var, 1)) return false; 
+   if (!RowCreate(cat_var_lbl, "cat_var", RISK.cat_var, 2)) return false; 
+   if (!RowCreate(day_vol_lbl, "valid_day_vol", RISK.valid_day_vol, 3)) return false; 
+   if (!RowCreate(day_of_week_lbl, "valid_day_of_week", RISK.valid_day_of_week, 4)) return false;
+   if (!RowCreate(long_lbl, "valid_long", RISK.valid_long, 5)) return false; 
+   if (!RowCreate(short_lbl, "valid_short", RISK.valid_short, 6)) return false; 
+   return true;
+}
+
+
+
+template <typename T> 
+bool        CTradePanel::RowCreate(CLabel &lbl,string key,T value,int row_number) {
+   string label_string     = StringFormat("%s: %s", key, (string)value); 
+   int y1   = row_number * (CONTROLS_FONT_SIZE + GAP_Y); 
+   if (!lbl.Create(0, key, 0, INDENT_X, y1, 50, 10)) return false; 
+   if (!lbl.Text(label_string)) return false;
+   if (!Add(lbl)) return false;
+   return true; 
+}
+
+void        CTradePanel::Minimize(void) {
+   long chart_height = ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
+   long chart_width  = ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0); 
+   int height  = MathAbs(m_min_rect.top - m_min_rect.bottom); 
+   int width = MathAbs(m_min_rect.left - m_min_rect.right); 
+   int lower_indent  = 5;
+   int horiz_indent  = 10;
+   m_min_rect.top = chart_height - (int)height - lower_indent; 
+   m_min_rect.bottom = m_min_rect.top + height;
+   m_min_rect.left   = horiz_indent + width; 
+   m_min_rect.right  = m_min_rect.left + width; 
+   CAppDialog::Minimize(); 
+}
+
+
+class CFeaturePanel : public CAppDialog {
+   public:
+      CFeaturePanel();
+      ~CFeaturePanel();
+      
+      CLabel   ind_spread_lbl, ind_skew_lbl, ind_day_vol_lbl, ind_peak_lbl; 
+      double   m_spread, m_skew, m_day_vol, m_peak_vol; 
+      //--- create
+      virtual  bool  Create(const long chart, const string name, const int subwin, const int x1, const int y1, const int x2, const int y2); 
+      virtual  void  Minimize(void); 
+      
+      template <typename T>   bool  RowCreate(CLabel &lbl, string key, T value, int row_number); 
+      void     Update(); 
+};
+
+CFeaturePanel::CFeaturePanel(void) {
+   Update(); 
+}
+
+CFeaturePanel::~CFeaturePanel(void) {}
+
+void        CFeaturePanel::Update(void) {
+   m_spread    = FEATURE.standard_score_value;
+   m_skew      = FEATURE.skew_value;
+   m_day_vol   = FEATURE.day_vol;
+   m_peak_vol  = FEATURE.peak_day_vol; 
+}
+bool        CFeaturePanel::Create(const long chart,const string name,const int subwin,const int x1,const int y1,const int x2,const int y2) {
+   if (!CAppDialog::Create(chart, name, subwin, x1, y1, x2, y2)) return false; 
+   //Print(FEATURE.peak_day_vol); 
+   if (!RowCreate(ind_spread_lbl, "read_spread", NormalizeDouble(m_spread, 5), 1)) return false;
+   
+   if (!RowCreate(ind_skew_lbl, "read_skew", NormalizeDouble(m_skew, 5), 2)) return false; 
+   
+   if (!RowCreate(ind_day_vol_lbl, "read_day_vol", NormalizeDouble(m_day_vol, 5), 3)) return false; 
+   if (!RowCreate(ind_peak_lbl, "read_peak_vol", NormalizeDouble(m_peak_vol, 5), 4)) return false; 
+   return true;
+}
+
+
+
+template <typename T> 
+bool        CFeaturePanel::RowCreate(CLabel &lbl,string key,T value,int row_number) {
+   string label_string     = StringFormat("%s: %s", key, (string)value); 
+   int y1   = row_number * (CONTROLS_FONT_SIZE + GAP_Y); 
+   if (!lbl.Create(0, key, 0, INDENT_X, y1, 50, 10)) return false; 
+   
+   if (!lbl.Text(label_string)) return false;
+   
+   if (!Add(lbl)) return false;
+   return true; 
+}
+
+void        CFeaturePanel::Minimize(void) {
+   long chart_height = ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
+   long chart_width  = ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0); 
+   int height  = MathAbs(m_min_rect.top - m_min_rect.bottom); 
+   int width = MathAbs(m_min_rect.left - m_min_rect.right); 
+   int lower_indent  = 5;
+   int horiz_indent  = 10;
+   m_min_rect.top = chart_height - (int)height - lower_indent; 
+   m_min_rect.bottom = m_min_rect.top + height;
+   m_min_rect.left   = horiz_indent + (2*width); 
+   m_min_rect.right  = m_min_rect.left + width; 
+   CAppDialog::Minimize(); 
+}

@@ -113,6 +113,8 @@ struct FeatureValues {
    double standard_score_value, skew_value, last_candle_high, last_candle_low, last_candle_close;
    
    double upper_bands, lower_bands, extreme_upper, extreme_lower, slow_upper, slow_lower; 
+   
+   double day_vol, peak_day_vol; 
 
 } FEATURE;
 
@@ -121,7 +123,7 @@ struct Configuration {
    int      trading_days[]; 
    double   low_volatility_thresh;
    bool     use_pd;
-   
+   double   sl; 
    string   days_string, intervals_string; 
 } CONFIG;
 
@@ -138,6 +140,11 @@ struct FeatureConfiguration {
       
    string         INDICATOR_PATH, SKEW_FILENAME, SPREAD_FILENAME, SDEV_FILENAME;
 } FEATURE_CONFIG;
+
+struct Risk {
+   double   var, cat_var; 
+   bool     valid_day_vol, valid_day_of_week, valid_long, valid_short; 
+} RISK;
 
 /*
 z score threshold = 2.1 
@@ -160,40 +167,14 @@ BBANDS_LOOKBACK                    = 14;
 BBANDS_NUM_SDEV                    = 2;
 */
 
-/*
-input string                  InpPaths             = " ========== PATHS =========="; 
-input string                  InpIndicatorPath     = "\\b63\\statistics\\"; // INDICATOR FOLDER
-input string                  InpSkewFilename      = "skew"; // SKEW FILENAME
-input string                  InpSpreadFilename    = "z_score"; // SPREAD FILENAME
-input string                  InpSdevFilename      = "std_dev"; // VOLATILITY FILENAME
-*/
+
 input string                  InpCFGSource         = " ========== CONFIG SOURCE ==========";
 input ENUM_CONFIG_SOURCE      InpConfig            = FILE; // CONFIG SOURCE 
 
-/*
-input string                  InpIndicator         = " ========== FEATURE VALUES ========== ";
-input int                     InpDayVolWindow      = 10; // DAILY VOLATILITY WINDOW 
-input int                     InpDayPeakVolWindow  = 90; // DAILY VOLATILITY PEAK LOOKBACK
-input int                     InpNormSpreadWindow  = 10; // NORMALIZED SPREAD LOOKBACK 
-input int                     InpNormMAWindow      = 50; // NORMALIZED SPREAD MA LOOKBACK
-input int                     InpSkewWindow        = 20; // SKEW LOOKBACK
-input int                     InpBBandsWindow      = 14; // BBANDS LOOKBACK
-input int                     InpBBandsSlowWindow  = 100; // SLOW BBANDS LOOKBACK
-input int                     InpBBandsNumSdev     = 2;  // BBANDS NUM SDEV
-input double                  InpZThresh           = 2; // SPREAD THRESHOLD
-input double                  InpSkewThresh        = 0.6; // SKEW THRESHOLD
-
-
-input string                  InpEntry             = " ========== ENTRY WINDOW =========="; //
-input int                     InpEntryWindowOpen   = 2; // ENTRY WINDOW OPEN
-input int                     InpEntryWindowClose  = 21; // ENTRY WINDOW CLOSE 
-input int                     InpTradeDeadline     = 22; // TRADE DEADLINE
-
-input string                  InpRiskMgt           = " ========== RISK MANAGEMENT =========="; 
-input double                  InpAcctMaxRiskPct    = 5; // ACCOUNT RISK PERCENT FOR CATASTROPHIC LOSS
-input double                  InpAcctTradeRiskPct  = 0.5; // TRADE RISK PERCENT FOR LOT CALCULATION
-input int                     InpMinimumSLDistance = 200; // MINIMUM SL DISTANCE (POINTS)
-*/
+input string                  InpConstraints       = " ========== CONSTRAINTS ========= ";
+input bool                    InpIgnoreLowVol      = false; // IGNORE LOW VOLATILITY CONSTRAINT
+input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
+input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
 
 input string                  InpConfigMain        = " ========== SYMBOL CONFIG ========== ";
 //input bool                    InpUseConfigCsv      = true; // USE CONFIG CSV
@@ -203,6 +184,7 @@ input bool                    InpRoundHourOnly     = false; // TRADE ON ROUND HO
 input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
 input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
 input int                     InpMagic             = 232323; // MAGIC NUMBER
+input double                  InpSL                = 0.00500; // SL 
 input string                  InpTradingDays       = " ========== TRADING DAYS ========== ";
 input string                  InpDaysString        = "0,1,2,3,4";
 

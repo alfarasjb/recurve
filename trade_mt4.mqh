@@ -1,6 +1,5 @@
 #include "definition.mqh"
 #include <MAIN/TradeOps.mqh>
-// FIX THIS LATER
 #include "profiles.mqh"
 #include "features.mqh"
 
@@ -97,9 +96,11 @@ class CRecurveTrade : public CTradeOps {
       string         DaysAsString();
       
       
+      
       template <typename T>   string      ArrayAsString(T &data[]);
       template <typename T>   void        ClearArray(T &data[]);  
       template <typename T>   void        Append(T &data[], T item);
+      template <typename T>   bool        ElementInArray(T element, T &src[]); 
    
       // UTILITIES 
       int            logger(string message, string function, bool notify=false, bool debug=true);
@@ -109,15 +110,6 @@ class CRecurveTrade : public CTradeOps {
 
 
 CRecurveTrade::CRecurveTrade(void) {
-/*
-   SYMBOL(Symbol());
-   MAGIC(InpMagic);
-   InitializeFeatureParameters();
-   InitializeSymbolProperties();
-   InitializeIntervals();
-   //InitializeDays();
-   InitializeConfiguration();
-*/
 }
 
 CRecurveTrade::~CRecurveTrade(void) {
@@ -132,6 +124,9 @@ void           CRecurveTrade::Init(void) {
    InitializeSymbolProperties();
    InitializeIntervals();
    InitializeConfiguration(); 
+   SetLatestFeatureValues(); 
+   Stage();
+   
 }
 
 void           CRecurveTrade::InitializeSymbolProperties(void) {
@@ -142,6 +137,8 @@ void           CRecurveTrade::InitializeSymbolProperties(void) {
    contract_size  = UTIL_SYMBOL_CONTRACT_SIZE();
 
 }
+
+// --- ARRAY OPS --- // 
 
 template <typename T> 
 void           CRecurveTrade::ClearArray(T &data[]) {
@@ -156,8 +153,37 @@ void           CRecurveTrade::Append(T &data[], T item) {
    data[size] = item; 
 }
 
+template <typename T> 
+bool           CRecurveTrade::ElementInArray(T element,T &src[]) {
+   int size = ArraySize(src);
+   for (int i = 0; i < size; i++) {
+      T item   = src[i];
+      if (element == item) return true; 
+   }
+   return false; 
+}
 
+template <typename T> 
+string         CRecurveTrade::ArrayAsString(T &data[]) {
+   
+   int size = ArraySize(data);
+   string array_string = "";
+   for (int i = 0; i < size; i++) {
+      if (i == 0) array_string = (string)data[i];
+      else array_string = StringConcatenate(array_string, ",", (string)data[i]); 
+   }
+   return array_string; 
+}
+
+string         CRecurveTrade::IntervalsAsString(void)       { return ArrayAsString(TRADE_INTERVALS); } 
+string         CRecurveTrade::DaysAsString(void)            { return ArrayAsString(CONFIG.trading_days); }
+
+
+// --- INITIALIZATION AND CONFIG --- // 
 void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
+   
+   
+   
    CFeatureLoader *feature    = new CFeatureLoader(SYMBOLS_DIRECTORY, Symbol());
    bool loaded = feature.LoadFile(ParseSymbolConfig);
    int num_trading_days = ArraySize(SYMBOL_CONFIG.trade_days);
@@ -176,6 +202,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
    
    CONFIG.low_volatility_thresh  = SYMBOL_CONFIG.low_volatility_threshold; 
    CONFIG.use_pd                 = (bool)SYMBOL_CONFIG.trade_use_pd; 
+   CONFIG.sl                     = SYMBOL_CONFIG.sl; 
    
    delete feature; 
 }
@@ -184,12 +211,17 @@ void           CRecurveTrade::LoadSymbolConfigFromInput(void) {
    InitializeDays();
    CONFIG.low_volatility_thresh  = InpLowVolThresh;
    CONFIG.use_pd                 = InpUsePrevDay;
+   CONFIG.sl                     = InpSL; 
 }
 
 void           CRecurveTrade::LoadSettingsFromFile(void) {
 
    CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_DIRECTORY, "settings");
    bool load      = feature.LoadFile(Parse); 
+   if (!load) {
+      logger("Failed to load settings.", __FUNCTION__); 
+      return; 
+   }
    
    FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW            = SETTINGS.day_vol_lookback;
    FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK     = SETTINGS.day_peak_lookback;
@@ -213,39 +245,8 @@ void           CRecurveTrade::LoadSettingsFromFile(void) {
    FEATURE_CONFIG.SDEV_FILENAME                      = SETTINGS.sdev_filename; 
    delete feature;
 }
-/*
-void           CRecurveTrade::LoadSettingsFromInput(void) {
-   FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW            = InpDayVolWindow;
-   FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK     = InpDayPeakVolWindow;
-   FEATURE_CONFIG.NORMALIZED_SPREAD_LOOKBACK         = InpNormSpreadWindow; 
-   FEATURE_CONFIG.NORMALIZED_SPREAD_MA_LOOKBACK      = InpNormMAWindow;
-   FEATURE_CONFIG.SKEW_LOOKBACK                      = InpSkewWindow;
-   FEATURE_CONFIG.BBANDS_LOOKBACK                    = InpBBandsWindow;
-   FEATURE_CONFIG.BBANDS_NUM_SDEV                    = InpBBandsNumSdev;
-   FEATURE_CONFIG.BBANDS_SLOW_LOOKBACK               = InpBBandsSlowWindow;
-   FEATURE_CONFIG.SPREAD_THRESHOLD                   = InpZThresh;
-   FEATURE_CONFIG.SKEW_THRESHOLD                     = InpSkewThresh; 
-   FEATURE_CONFIG.ENTRY_WINDOW_OPEN                  = InpEntryWindowOpen;
-   FEATURE_CONFIG.ENTRY_WINDOW_CLOSE                 = InpEntryWindowClose; 
-   FEATURE_CONFIG.TRADE_DEADLINE                     = InpTradeDeadline;
-   FEATURE_CONFIG.CATLOSS                            = InpAcctMaxRiskPct;
-   FEATURE_CONFIG.RPT                                = InpAcctTradeRiskPct;
-   FEATURE_CONFIG.MIN_SL_DISTANCE                    = InpMinimumSLDistance; 
-}
-*/
-void           CRecurveTrade::InitializeFeatureParameters(void) {
-   LoadSettingsFromFile(); 
-   /*
-   switch (InpConfig) {
-      case FILE:
-         LoadSettingsFromFile();
-         break;
-      case INPUT:
-         LoadSettingsFromInput();
-         break;
-   }*/
-}
 
+void           CRecurveTrade::InitializeFeatureParameters(void)         { LoadSettingsFromFile(); } 
 
 
 
@@ -275,7 +276,6 @@ void           CRecurveTrade::InitializeDays(void) {
    
    string result[];
    int split = StringSplit(InpDaysString, ',', result);
-   //for (int i = 0; i < split; i++) AddDay((int)result[i]);
    for (int i = 0; i < split; i++) Append(CONFIG.trading_days, (int)result[i]);
    int size = ArraySize(CONFIG.trading_days);
    logger(StringFormat("%i Trading Days Valid.", size), __FUNCTION__);
@@ -306,23 +306,6 @@ void           CRecurveTrade::InitializeIntervals(void) {
       }
 }
 
-bool           CRecurveTrade::ValidInterval(void) {
-   
-   int minute  = TimeMinute(TimeCurrent());
-   
-   int size    = ArraySize(TRADE_INTERVALS);
-   
-   if (size == 0) {
-      logger("Empty Interval. Returning True.", __FUNCTION__);
-      return true;
-   }
-   
-   for (int i = 0; i < size; i++) {
-      int interval = TRADE_INTERVALS[i];
-      if (minute == interval) return true;
-   }
-   return false;
-}
 
 void           CRecurveTrade::GenerateInterval(int &intervals[]) {
    int size    = ArraySize(intervals);
@@ -334,25 +317,9 @@ void           CRecurveTrade::GenerateInterval(int &intervals[]) {
 
 
 
-template <typename T> 
-string         CRecurveTrade::ArrayAsString(T &data[]) {
-   
-   int size = ArraySize(data);
-   string array_string = "";
-   for (int i = 0; i < size; i++) {
-      if (i == 0) array_string = (string)data[i];
-      else array_string = StringConcatenate(array_string, ",", (string)data[i]); 
-   }
-   return array_string; 
-}
 
-string         CRecurveTrade::IntervalsAsString(void) {
-   return ArrayAsString(TRADE_INTERVALS);
-}
+// --- TRADE OPS AND POSITION SIZING --- // 
 
-string         CRecurveTrade::DaysAsString(void) {
-   return ArrayAsString(CONFIG.trading_days);
-}
 
 double         CRecurveTrade::CatastrophicLossVAR(void) {
 
@@ -369,12 +336,6 @@ double         CRecurveTrade::ValueAtRisk(void) {
 
 }
 
-bool           CRecurveTrade::EndOfDay(void) {
-   int hour = TimeHour(TimeCurrent());
-   if (hour > FEATURE_CONFIG.ENTRY_WINDOW_CLOSE) return true;
-   return false; 
-   
-}
 
 double         CRecurveTrade::CalcLot(double sl_distance) {
 
@@ -394,40 +355,13 @@ double         CRecurveTrade::CalcLot(double sl_distance) {
 
 }
 
-bool           CRecurveTrade::ValidDayVolatility(void) {
-
-   double day_volatility      = DAY_VOL();
-   double day_peak            = DAY_PEAK_VOL(); 
-   //double minimum_volatility  = 0.00682; // NEED
-   double minimum_volatility  = CONFIG.low_volatility_thresh;  
-   
-   if (day_volatility > day_peak) return false; 
-   if (day_volatility < minimum_volatility) return false;
-   // ADD LOW VOLATILITY WINDOW 
-   // ADD HOLIDAY
-   return true;
-
-}
-
-bool           CRecurveTrade::DayOfWeekInTradingDays(void) {
-   int current_day_of_week    = DayOfWeek() - 1; 
-   
-   int size = ArraySize(CONFIG.trading_days);
-   for (int i = 0; i < size; i++) {
-      int day = CONFIG.trading_days[i];
-      if (current_day_of_week == day) return true; 
-   }
-   return false; 
-}
-
-bool           CRecurveTrade::ValidDayOfWeek(void) { return DayOfWeekInTradingDays(); }
-
 double         CRecurveTrade::SLFactor(double entry_price) {
    
    double volatility_factor      = (DAY_VOL() * 0.5) / TRADE_POINTS(); 
    double minimum_sl             = FEATURE_CONFIG.MIN_SL_DISTANCE;
+   double derived_sl             = CONFIG.sl;
    
-   double sl_factor              = volatility_factor < minimum_sl ? volatility_factor * 4 * TRADE_POINTS() : volatility_factor * TRADE_POINTS(); 
+   double sl_factor              = volatility_factor < minimum_sl ? derived_sl : volatility_factor * TRADE_POINTS(); 
    return sl_factor;
 }
 
@@ -439,6 +373,8 @@ double         CRecurveTrade::CatastrophicSLFactor(double lot,double var) {
    return sl_ticks; 
 
 }
+
+
 
 TradeParams    CRecurveTrade::ParamsLong(ENUM_ORDER_SEND_METHOD method,TradeLayer &layer) {
    
@@ -540,7 +476,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
 }
 
 int            CRecurveTrade::CloseOrder(void) {
-   logger("Close All Orders.", __FUNCTION__);
+   //logger("Close All Orders.", __FUNCTION__);
    int num_positions    = PosTotal();
    
    for (int i = 0; i < num_positions; i ++) {
@@ -644,25 +580,82 @@ int            CRecurveTrade::CloseStackedTrade(ENUM_ORDER_TYPE order) {
 int            CRecurveTrade::SendOrder(TradeParams &PARAMS) {
    // CLOSE ALL OPEN TRADES IF STACKING IS DISABLED
    // CLOSE OPPOSITE TRADES IF OPPOSITE SIGNAL    }
-   logger(StringFormat("Sending Order. Order Type :%s", EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type)), __FUNCTION__);
-   if (TimeMinute(TimeCurrent()) != 0) {
-      // Close Opposite Order
-      //CloseOppositeTrade((ENUM_ORDER_TYPE)PARAMS.order_type);  
-          
-      //return 0; 
-   }
+   logger(StringFormat("Sending Order. Order Type :%s", 
+      EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type)), __FUNCTION__);
    // Close Stack Order
    CloseOppositeTrade((ENUM_ORDER_TYPE)PARAMS.order_type);
    CloseStackedTrade((ENUM_ORDER_TYPE)PARAMS.order_type);
-   //if (!InpRoundHourOnly)
    return SendMarketOrder(PARAMS);
 
 }
 
-int            CRecurveTrade::Stage() { 
-   if (!ValidDayOfWeek()) return 0; 
-   if (!ValidDayVolatility()) return 0; 
+
+
+
+// --- LOGIC -- // 
+bool           CRecurveTrade::ValidInterval(void) {
    
+   if (InpIgnoreIntervals) return true; 
+   int minute  = TimeMinute(TimeCurrent());
+   
+   int size    = ArraySize(TRADE_INTERVALS);
+   
+   if (size == 0) {
+      logger("Empty Interval. Returning True.", __FUNCTION__);
+      return true;
+   }
+   
+   for (int i = 0; i < size; i++) {
+      int interval = TRADE_INTERVALS[i];
+      if (minute == interval) return true;
+   }
+   return false;
+}
+
+bool           CRecurveTrade::EndOfDay(void) {
+   int hour = TimeHour(TimeCurrent());
+   if (hour > FEATURE_CONFIG.ENTRY_WINDOW_CLOSE) return true;
+   return false; 
+   
+}
+
+
+bool           CRecurveTrade::ValidDayVolatility(void) {
+
+   double day_volatility      = DAY_VOL();
+   double day_peak            = DAY_PEAK_VOL(); 
+   //double minimum_volatility  = 0.00682; // NEED
+   double minimum_volatility  = CONFIG.low_volatility_thresh;  
+   
+   if (day_volatility > day_peak)            return false; 
+   if (InpIgnoreLowVol)                      return true; 
+   if (day_volatility < minimum_volatility)  return false;
+   // ADD LOW VOLATILITY WINDOW 
+   // ADD HOLIDAY
+   return true;
+
+}
+
+bool           CRecurveTrade::DayOfWeekInTradingDays(void) {
+   if (InpIgnoreDayOfWeek) return true; 
+   int current_day_of_week    = DayOfWeek() - 1; 
+   if (ElementInArray(current_day_of_week, CONFIG.trading_days)) return true; 
+   return false; 
+}
+
+bool           CRecurveTrade::ValidDayOfWeek(void) { return DayOfWeekInTradingDays(); }
+
+
+int            CRecurveTrade::Stage() { 
+   RISK.var                = ValueAtRisk();
+   RISK.cat_var            = CatastrophicLossVAR(); 
+   RISK.valid_day_of_week  = ValidDayOfWeek(); 
+   RISK.valid_day_vol      = ValidDayVolatility();
+   RISK.valid_long         = PreviousDayValid(LONG);
+   RISK.valid_short        = PreviousDayValid(SHORT); 
+   
+   if (!RISK.valid_day_of_week) return 0;
+   if (!RISK.valid_day_vol)   return 0; 
    
    
    FeatureValues  LatestFeatureValues     = SetLatestFeatureValues(); 
@@ -775,10 +768,16 @@ FeatureValues  CRecurveTrade::SetLatestFeatureValues(void) {
    FEATURE.extreme_lower            = EXTREME_LOWER();
    FEATURE.slow_upper               = SLOW_UPPER();
    FEATURE.slow_lower               = SLOW_LOWER(); 
+   FEATURE.day_vol                  = DAY_VOL();
+   FEATURE.peak_day_vol             = DAY_PEAK_VOL(); 
+  
    
    return FEATURE;
 
 }
+
+
+// --- LOGGING --- // 
 
 int            CRecurveTrade::logger(string message,string function,bool notify=false,bool debug=true) {
    if (!InpTerminalMsg && !debug) return -1;
@@ -811,6 +810,12 @@ int            CRecurveTrade::error(string message) {
 }
 
 
+
+//+------------------------------------------------------------------+
+//|FEATURES                                                          |
+//+------------------------------------------------------------------+
+
+// --- FEATURES --- //
 
 double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift = 1)    { 
 
