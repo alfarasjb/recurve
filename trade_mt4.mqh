@@ -15,6 +15,7 @@ class CRecurveTrade : public CTradeOps {
       // INTERVALS
       int            TRADE_INTERVALS[];//, TRADING_DAYS[];
       
+      string         SYMBOLS_PATH, SETTINGS_PATH; 
    private:
    public: 
    
@@ -30,6 +31,7 @@ class CRecurveTrade : public CTradeOps {
       ~CRecurveTrade(); 
   
       void           Init(); 
+      void           InitializeConfigurationPaths(); 
       void           InitializeFeatureParameters();
       void           InitializeSymbolProperties();
       void           InitializeIntervals();
@@ -118,6 +120,7 @@ CRecurveTrade::~CRecurveTrade(void) {
 }
 
 void           CRecurveTrade::Init(void) {
+   InitializeConfigurationPaths();
    SYMBOL(Symbol()); 
    MAGIC(InpMagic);
    InitializeFeatureParameters();
@@ -127,6 +130,22 @@ void           CRecurveTrade::Init(void) {
    SetLatestFeatureValues(); 
    Stage();
    
+}
+
+void           CRecurveTrade::InitializeConfigurationPaths(void) {
+   switch(InpPreset) {
+      case MODE_AGGRESSIVE:
+         SYMBOLS_PATH   = "recurve\\symbols\\aggressive\\";
+         SETTINGS_PATH  = "settings"; 
+         break;
+      case MODE_MASTER:
+         SYMBOLS_PATH   = "recurve\\symbols\\master\\"; 
+         SETTINGS_PATH  = "settings_master"; 
+   }
+   logger(StringFormat("Selected Preset: %s Symbols Path: %s, Settings Path: %s",
+      EnumToString(InpPreset), 
+      SYMBOLS_PATH,
+      SETTINGS_PATH), __FUNCTION__); 
 }
 
 void           CRecurveTrade::InitializeSymbolProperties(void) {
@@ -184,7 +203,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
    
    
    
-   CFeatureLoader *feature    = new CFeatureLoader(SYMBOLS_DIRECTORY, Symbol());
+   CFeatureLoader *feature    = new CFeatureLoader(SYMBOLS_PATH, Symbol());
    bool loaded = feature.LoadFile(ParseSymbolConfig);
    int num_trading_days = ArraySize(SYMBOL_CONFIG.trade_days);
    
@@ -215,8 +234,8 @@ void           CRecurveTrade::LoadSymbolConfigFromInput(void) {
 }
 
 void           CRecurveTrade::LoadSettingsFromFile(void) {
-
-   CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_DIRECTORY, "settings");
+   
+   CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_DIRECTORY, SETTINGS_PATH);
    bool load      = feature.LoadFile(Parse); 
    if (!load) {
       logger("Failed to load settings.", __FUNCTION__); 
@@ -705,7 +724,6 @@ bool           CRecurveTrade::ValidTradeWindow(void) {
    int ENTRY_HOUR       = FEATURE_CONFIG.ENTRY_WINDOW_OPEN; // convert to input 
    int EXIT_HOUR        = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE; // convert to input 
    
-   if ((minute != 0) && (InpRoundHourOnly)) return false; 
    if (hour < ENTRY_HOUR) return false ;
    if (hour > EXIT_HOUR) return false; 
    return true; 

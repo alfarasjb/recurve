@@ -7,27 +7,20 @@
 #include <MAIN/Loader.mqh> 
 #include "forex_factory.mqh"
 #include "features.mqh"
-#include "Panel.mqh"
+#include "trade_app.mqh"
+
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
-//-- PANELS ARE TEMPORARY
-CInfoPanel                 ExtDialog; 
-CTradePanel                TradeDialog; 
-CFeaturePanel              FeatureDialog; 
+CRecurveApp                AppDialog; 
 
 int OnInit() {
+   ObjectsDeleteAll(0, -1, -1);
    
    recurve_trade.Init(); 
+   latest_values_panel.Update(); 
+   AppDialog.Init(); 
    
-   //--- TEMPORARY 
-   FeatureDialog.Update(); 
-   if (!ExtDialog.Create(0, "Info", 0,  5, 5, 150, 400))          return INIT_FAILED;
-   if (!TradeDialog.Create(0, "Risk", 0, 160, 5, 350, 150))       return INIT_FAILED;
-   if (!FeatureDialog.Create(0, "Feature", 0, 360, 5, 560, 150))  return INIT_FAILED;
-   ExtDialog.Run(); 
-   TradeDialog.Run(); 
-   FeatureDialog.Run(); 
    if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
    //ShowComments();
    return INIT_SUCCEEDED;
@@ -42,9 +35,16 @@ void OnDeinit(const int reason) {
    delete export_hist;
    
    ObjectsDeleteAll(0, -1, -1); 
-   ExtDialog.Destroy(reason); 
-   TradeDialog.Destroy(reason); 
-   FeatureDialog.Destroy(reason); 
+   //ExtDialog.Destroy(reason); 
+   //TradeDialog.Destroy(reason); 
+   //FeatureDialog.Destroy(reason); 
+   AppDialog.Destroy(reason); 
+   feature_panel.Destroy(reason); 
+   entry_panel.Destroy(reason); 
+   risk_panel.Destroy(reason); 
+   symbol_panel.Destroy(reason); 
+   var_panel.Destroy(reason);
+   latest_values_panel.Destroy(reason); 
 }
 
 void OnTick() {
@@ -61,7 +61,8 @@ MAIN LOOP
       
       if (recurve_trade.EndOfDay()) recurve_trade.CloseOrder();
       //ShowComments();
-      FeatureDialog.Update(); 
+      //FeatureDialog.Update(); 
+      latest_values_panel.Update(); 
       if (calendar_loader.IsNewYear()) calendar_loader.LoadCSV(HIGH); 
    }
 }
@@ -71,7 +72,5 @@ void OnChartEvent(const int id,         // event ID
                   const double& dparam, // event parameter of the double type
                   const string& sparam) // event parameter of the string type
   {
-   ExtDialog.ChartEvent(id,lparam,dparam,sparam);
-   TradeDialog.ChartEvent(id, lparam, dparam, sparam); 
-   FeatureDialog.ChartEvent(id, lparam, dparam, sparam); 
+   AppDialog.ChartEvent(id, lparam, dparam, sparam);
   }

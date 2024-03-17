@@ -65,6 +65,11 @@ enum ENUM_DAILY_VOLATILITY_MODE {
    MODE_STD_DEV, MODE_ROLLING_MAX_STD_DEV 
 };
 
+enum ENUM_PRESET {
+   MODE_AGGRESSIVE, // Aggressive
+   MODE_MASTER // Master
+};
+
 // =========== STRUCT ========== // 
 
 struct RiskProfile {
@@ -167,30 +172,44 @@ BBANDS_LOOKBACK                    = 14;
 BBANDS_NUM_SDEV                    = 2;
 */
 
+input string                  InpGlobal            = "Global Configs: Configs not found in .ini file. "; // ========== GLOBAL CONFIG ========== 
+input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
+input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
+input string                  InpEmpty_1           = ""; //
 
-input string                  InpCFGSource         = " ========== CONFIG SOURCE ==========";
+input string                  InpCFGSource         = "Source for symbol config."; // ========== CONFIG SOURCE ========== 
 input ENUM_CONFIG_SOURCE      InpConfig            = FILE; // CONFIG SOURCE 
+input ENUM_PRESET             InpPreset            = MODE_AGGRESSIVE; // PRESET 
+input string                  InpEmpty_2           = ""; //
 
-input string                  InpConstraints       = " ========== CONSTRAINTS ========= ";
+input string                  InpConstraints       = "Override settings.ini"; // ========== CONSTRAINTS ========= 
 input bool                    InpIgnoreLowVol      = false; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
+input string                  InpEmpty_3           = ""; 
 
-input string                  InpConfigMain        = " ========== SYMBOL CONFIG ========== ";
-//input bool                    InpUseConfigCsv      = true; // USE CONFIG CSV
+input string                  InpConfigMain        = "Main Symbol Config"; // ========== SYMBOL CONFIG ========== 
 input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
 input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
-input bool                    InpRoundHourOnly     = false; // TRADE ON ROUND HOUR ONLY
-input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
-input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
-input int                     InpMagic             = 232323; // MAGIC NUMBER
 input double                  InpSL                = 0.00500; // SL 
-input string                  InpTradingDays       = " ========== TRADING DAYS ========== ";
 input string                  InpDaysString        = "0,1,2,3,4";
 
+input string                  InpEmpty_4           = ""; //
 
-input string                  InpRiskProfile       = " ========== RISK PROFILE =========="; // 
+
+input string                  InpRiskProfile       = "Risk Profile and Trade Ops"; // ========== RISK PROFILE ==========
 input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
+input int                     InpMagic             = 232323; // MAGIC NUMBER
+input string                  InpEmpty_5           = ""; // 
+
+input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========
+input bool                    InpShowUI            = false; // SHOW UI
+input bool                    InpTradeOnNews       = false; // TRADE ON NEWS
+input Source                  InpNewsSource        = R4F_WEEKLY; // NEWS SOURCE
+input bool                    InpTerminalMsg       = true; // TERMINAL LOGGING 
+input bool                    InpPushNotifs        = false; // PUSH NOTIFICATIONS
+input bool                    InpDebugLogging      = true; // DEBUG LOGGING
+
 /*
 input ENUM_ORDER_SEND_METHOD  InpRPOrderSendMethod = MODE_PENDING; // RISK PROFILE: ORDER SEND METHOD
 input ENUM_POSITIONS          InpRPPositions       = MODE_SINGLE; // RISK PROFILE: POSITIONS
@@ -219,15 +238,6 @@ input float                   InpDDScale           = 0.5; // DRAWDOWN SCALING
 input float                   InpAbsDDThresh       = 10; // ABSOLUTE DRAWDOWN THRESHOLD
 input double                  InpEquityDDThresh    = 5; // EQUITY DRAWDOWN THRESHOLD
 */
-input string                  InpMisc              = " ========== MISC ==========";
-input bool                    InpShowUI            = false; // SHOW UI
-input bool                    InpTradeOnNews       = false; // TRADE ON NEWS
-input Source                  InpNewsSource        = R4F_WEEKLY; // NEWS SOURCE
-
-input string                  InpLogging           = " ========== LOGGING =========";
-input bool                    InpTerminalMsg       = true; // TERMINAL LOGGING 
-input bool                    InpPushNotifs        = false; // PUSH NOTIFICATIONS
-input bool                    InpDebugLogging      = true; // DEBUG LOGGING
 
 
 
@@ -242,6 +252,7 @@ const string   R4F_DIRECTORY        = "recurve\\r4f_news";
 const string   INDICATOR_DIRECTORY  = "\\b63\\statistics\\";
 const string   CONFIG_DIRECTORY     = "recurve\\config.csv";
 const string   SETTINGS_DIRECTORY   = "recurve\\settings\\";
-const string   SYMBOLS_DIRECTORY    = "recurve\\symbols\\";
+//const string   SYMBOLS_DIRECTORY    = "recurve\\symbols\\";
+
 // DAY OF WEEK 0 - Sunday, 1, 2, 3, 4, 5, 6
 
