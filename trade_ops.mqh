@@ -53,6 +53,7 @@ class CTradeOps {
       virtual     int      OP_ModifySL(double sl); 
       virtual     int      OP_ModifyTP(double tp);
       virtual     int      OP_OrdersCloseBatch(int &orders[]); 
+      virtual     int      OP_OrdersBreakevenBatch(int &orders[]); 
       
       //--- MISC FUNCTIONS
       virtual     bool     OrderIsPending(int ticket); 
@@ -165,20 +166,31 @@ int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
    return OP_OrdersCloseBatch(extracted); 
 }
 
-/*
-int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
-   int num_orders = ArraySize(orders);
-   if (num_orders <= 0) return 0; 
+int      CTradeOps::OP_OrdersBreakevenBatch(int &orders[]) {
+   CPool<int> *order_pool = new CPool<int>(); 
+   order_pool.Create(orders);
+   int num_orders = order_pool.Size();
    
-   int ticket = orders[0]; 
+   if (num_orders <= 0) {
+      delete order_pool;
+      return 0; 
+   }
+   int ticket = order_pool.Item(0); 
+   int s = OP_OrderSelectByTicket(ticket); 
+   int m = OP_ModifySL(PosSL()); 
+   int a = order_pool.Dequeue();
+   if (a > num_orders) {
+      delete order_pool;
+      return -1;
+   }
    
-   int c = OP_CloseTrade(ticket); 
-   int a = PopOrderArray(orders); 
-   if (a > num_orders) return -1; 
+   int extracted[];
+   int num_extracted = order_pool.Extract(extracted);
    
-   return OP_OrdersCloseBatch(orders); 
+   delete order_pool;
+   return OP_OrdersBreakevenBatch(extracted); 
 }
-*/
+
 int      CTradeOps::PopOrderArray(int &tickets[]) {
    int temp[]; 
    int size = ArraySize(tickets); 

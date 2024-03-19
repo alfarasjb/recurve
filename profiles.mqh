@@ -90,7 +90,7 @@ TradeProfile     CProfiles::BuildProfile(void) {
       for(int i = 0; i < num_days - 1; i++) {
          int size = ArraySize(TRADE_PROFILE.trade_days);
          ArrayResize(TRADE_PROFILE.trade_days, size+1);
-         TRADE_PROFILE.trade_days[i] = StringToInteger(CharToString(char_array[i])); 
+         TRADE_PROFILE.trade_days[i] = (int)StringToInteger(CharToString(char_array[i])); 
          
       } 
       

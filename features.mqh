@@ -124,7 +124,7 @@ bool Parse(string key, string value) {
 bool  ParseSymbolConfig(string key, string value) {
    if (key == "" || value == "") return true; 
    else if (key == "low_vol_threshold")   SYMBOL_CONFIG.low_volatility_threshold = StringToDouble(value);
-   else if (key == "use_pd")              SYMBOL_CONFIG.trade_use_pd             = StringToInteger(value);
+   else if (key == "use_pd")              SYMBOL_CONFIG.trade_use_pd             = (int)StringToInteger(value);
    else if (key == "sl")                  SYMBOL_CONFIG.sl                       = StringToDouble(value);
    else if (key == "days") {
       string result[];

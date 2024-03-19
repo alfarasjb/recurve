@@ -216,7 +216,7 @@ input string                  InpConstraints       = "Override settings.ini"; //
 input bool                    InpIgnoreLowVol      = false; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
-input bool                    InpUseFixedLot       = false; // USE FIXED LOT
+input bool                    InpUseFixedRisk      = false; // USE FIXED LOT
 input string                  InpEmpty_3           = ""; 
 
 input string                  InpConfigMain        = "Main Symbol Config"; // ========== SYMBOL CONFIG ========== 
@@ -224,7 +224,7 @@ input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY 
 input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
 input double                  InpSL                = 0.00500; // SL 
 input string                  InpDaysString        = "0,1,2,3,4"; // DAYS
-input double                  InpFixedLot          = 0.01; // FIXED LOT 
+input double                  InpFixedRisk         = 100; // FIXED REFERENCE FOR CALCULATING LOT SIZE (DEPOSIT) 
 input string                  InpEmpty_4           = ""; //
 
 
@@ -232,6 +232,7 @@ input string                  InpRiskProfile       = "Risk Profile and Trade Ops
 input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
 input int                     InpMagic             = 232323; // MAGIC NUMBER
 input double                  InpMaxLot            = 0.01; // MAX LOT
+input double                  InpLotScaleFactor    = 1; // LOT SIZE SCALE FACTOR
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========

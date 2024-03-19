@@ -75,6 +75,8 @@ class CRecurveTrade : public CTradeOps {
       bool           ValidDayVolatility(); 
       bool           ValidDayOfWeek();
       ENUM_SIGNAL    Signal(FeatureValues &features);
+      ENUM_SIGNAL    CutLoss(FeatureValues &features); 
+      ENUM_SIGNAL    TakeProfit(FeatureValues &features);
       bool           EndOfDay();
       bool           ValidInterval();
       bool           DayOfWeekInTradingDays();
@@ -90,9 +92,6 @@ class CRecurveTrade : public CTradeOps {
       int            SendMarketOrder(TradeParams &PARAMS);
       int            CloseOrder();
       double         CatastrophicSLFactor(double lot, double var);
-      int            CloseOppositeTrade(ENUM_ORDER_TYPE order);
-      int            CloseStackedTrade(ENUM_ORDER_TYPE order);
-      int            CloseTradesInProfit(ENUM_ORDER_TYPE order); 
       double         CatastrophicLossVAR();
       double         ValueAtRisk();
       double         FloatingPL();
@@ -101,8 +100,6 @@ class CRecurveTrade : public CTradeOps {
       bool           PreviousDayValid(ENUM_DIRECTION direction);
       string         IntervalsAsString();
       string         DaysAsString();
-      ENUM_SIGNAL    CutLoss(FeatureValues &features); 
-      ENUM_SIGNAL    TakeProfit(FeatureValues &features);
       bool           ValidStack(ENUM_ORDER_TYPE order); 
       bool           ValidInvert(ENUM_ORDER_TYPE order); 
       bool           ValidTakeProfit(ENUM_ORDER_TYPE order); 
@@ -436,7 +433,7 @@ double         CRecurveTrade::CatastrophicLossVAR(void) {
    /**
       Calculates Catastrophic VAR in USD
    **/
-   double balance    = UTIL_ACCOUNT_BALANCE(); 
+   double balance    = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
    double var        = balance * FEATURE_CONFIG.CATLOSS / 100; 
    return var; 
 }
@@ -445,7 +442,7 @@ double         CRecurveTrade::ValueAtRisk(void) {
    /**
       Calculates VAR in USD 
    **/
-   double balance    = UTIL_ACCOUNT_BALANCE(); 
+   double balance    = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
    double var        = balance * FEATURE_CONFIG.RPT / 100; 
    return var;
 
@@ -459,11 +456,8 @@ double         CRecurveTrade::CalcLot(double sl_distance) {
    **/
    
    
-   //-- Returns fixed lot if override is used. 
-   if (InpUseFixedLot) return InpFixedLot; 
-   
    double var           = ValueAtRisk();
-   double lot_size      = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()); 
+   double lot_size      = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()) * InpLotScaleFactor; 
    
    //-- Symbol max lot and min lot 
    double min_lot       = UTIL_SYMBOL_MINLOT();
@@ -676,95 +670,7 @@ bool        CRecurveTrade::InFloatingLoss(void) {
    return true; 
 }
 
-/*
-int            CRecurveTrade::CloseOppositeTrade(ENUM_ORDER_TYPE order) {
 
-   int num_trades = PosTotal(); 
-   int extracted[]; 
-   
-   CPool<int> *trades_to_close = new CPool<int>(); 
-   //trades_to_close.Clear(); 
-   logger(StringFormat("Close Opposite Trade. Positions Open: %i, Orders to ignore: %s", 
-      num_trades, 
-      EnumToString(order)), __FUNCTION__);
-      
-   bool valid_interval  = ValidInterval();
-   for (int i = 0; i < num_trades; i++) {
-      int t = OP_OrderSelectByIndex(i);
-      if (!OP_TradeMatch(i))                    continue; 
-      if (PosOrderType() == order)              continue; 
-      if (PosProfit() > 0 && !valid_interval)   continue; // ignore orders in profit
-      
-      int ticket_to_close = PosTicket(); 
-      trades_to_close.Append(ticket_to_close); 
-   
-   }
-   int target_trades_to_close = trades_to_close.Size(); 
-   int num_extracted = trades_to_close.Extract(extracted); 
-   logger(StringFormat("Target: %i, Extracted: %i", target_trades_to_close, num_extracted), __FUNCTION__); 
-   
-   int closed_orders = OP_OrdersCloseBatch(extracted);
-   logger(StringFormat("Closed %i Opposite Trades.", closed_orders), __FUNCTION__);
-   if (target_trades_to_close != closed_orders) {
-      logger(StringFormat("Failed to close opposite trades. Target: %i, Closed: %i", target_trades_to_close, closed_orders), __FUNCTION__);
-      Sleep(2500);
-      CloseOppositeTrade(order); 
-      
-   }
-   delete trades_to_close; 
-   return closed_orders; 
-}
-
-
-int            CRecurveTrade::CloseTradesInProfit(ENUM_ORDER_TYPE order) {
-   
-   int num_trades = PosTotal(); 
-   
-   int trades_to_close[]; 
-   
-   ClearArray(trades_to_close); 
-   logger(StringFormat("Positions Open: %i", num_trades), __FUNCTION__); 
-   
-   for (int i = 0; i < num_trades; i++) {
-      int t = OP_OrderSelectByIndex(i); 
-      if (!OP_TradeMatch(i))        continue; 
-      if (PosOrderType() != order)  continue; 
-      if (PosProfit() < 0)          continue; 
-      
-      Append(trades_to_close, PosTicket()); 
-   }
-   int   closed_orders = OP_OrdersCloseBatch(trades_to_close); 
-   logger(StringFormat("Secured %i rades in profit.", closed_orders), __FUNCTION__); 
-   return closed_orders; 
-}
-
-int            CRecurveTrade::CloseStackedTrade(ENUM_ORDER_TYPE order) {
-
-   int num_trades = PosTotal();
-   
-   int trades_to_close[];
-   ClearArray(trades_to_close);
-   logger(StringFormat("Close Stacked Trade. Positions Open: %i, Existing Position: %s", 
-      num_trades, 
-      EnumToString(order)), __FUNCTION__);
-      
-   bool valid_interval  = ValidInterval();
-   for (int i = 0; i < num_trades; i++ ){ 
-      int t = OP_OrderSelectByIndex(i);
-      if (!OP_TradeMatch(i))                    continue; 
-      if (PosOrderType() != order)              continue; 
-      if (PosProfit() < 0 && !valid_interval)   continue; // skip trades in profit 
-      if (PosProfit() > 0 && valid_interval)    continue;
-      
-      Append(trades_to_close, PosTicket());
-      
-   }
-   int closed_orders = OP_OrdersCloseBatch(trades_to_close);
-   logger(StringFormat("Closed %i Stacked Trades.", closed_orders), __FUNCTION__);
-   return closed_orders;
-
-}
-*/
 bool           CRecurveTrade::ValidStack(ENUM_ORDER_TYPE order) {
    /**
       Determines if closing stacked position is valid. 
@@ -1069,36 +975,21 @@ int            CRecurveTrade::Stage() {
       );
       
       //--- Close Positions (Stack/Invert/Take Profit/Cut)
-      ClosePositions(signal); 
+      //ClosePositions(signal); 
    }
    
    switch(signal) {
+      case SIGNAL_NONE:    break; 
       case TRADE_LONG: 
-         logger("Send Order: Long", __FUNCTION__);       
+         logger("Send Order: Long", __FUNCTION__);      
+         ClosePositions(signal);  
          return SendOrder(ParamsLong(MODE_MARKET, LAYER)); // SEND LONG 
          
       case TRADE_SHORT:       
          logger("Send Order: Short", __FUNCTION__);
-         return SendOrder(ParamsShort(MODE_MARKET, LAYER));  // SEND SHORT 
-      /*
-      case CUT_LONG:
-         logger("Cut Long", __FUNCTION__);
-         return CloseStackedTrade(ORDER_TYPE_BUY);
-         
-      case CUT_SHORT: 
-         logger("Cut Short", __FUNCTION__);
-         return CloseStackedTrade(ORDER_TYPE_SELL);
-         
-      case TAKE_PROFIT_LONG:  
-         logger("Take Profit Long", __FUNCTION__);
-         return CloseStackedTrade(ORDER_TYPE_BUY); 
-         
-      case TAKE_PROFIT_SHORT:
-         logger("Take Profit Short", __FUNCTION__);
-         return CloseStackedTrade(ORDER_TYPE_SELL); 
-      */
-      default:       break;
-      
+         ClosePositions(signal);
+         return SendOrder(ParamsShort(MODE_MARKET, LAYER));  // SEND SHORT
+      default:    return ClosePositions(signal);
    }
    return 0;
 }
