@@ -1,0 +1,211 @@
+
+#include <MAIN/utilities.mqh>
+#include "pool.mqh"
+class CTradeOps {
+   private:
+      string      TRADE_SYMBOL;
+      int         TRADE_MAGIC;
+   protected:
+      //--- WRAPPERS
+                  
+                  double            PosLots(void) const     { return OrderLots(); }
+                  string            PosSymbol(void) const   { return OrderSymbol(); }
+                  int               PosMagic(void) const    { return OrderMagicNumber(); }
+                  datetime          PosOpenTime() const     { return OrderOpenTime(); }
+                  datetime          PosCloseTime() const    { return OrderCloseTime(); }
+                  double            PosOpenPrice() const    { return OrderOpenPrice(); }
+                  double            PosClosePrice() const   { return OrderClosePrice(); }
+                  double            PosProfit() const       { return (OrderProfit() + OrderCommission() + OrderSwap()); }
+                  ENUM_ORDER_TYPE   PosOrderType() const    { return (ENUM_ORDER_TYPE)OrderType(); }
+                  double            PosSL() const           { return OrderStopLoss(); }
+                  double            PosTP() const           { return OrderTakeProfit(); }
+                  double            PosCommission() const   { return MathAbs(OrderCommission()); }
+                  double            PosSwap() const         { return MathAbs(OrderSwap()); }
+                  int               PosHistTotal() const    { return OrdersHistoryTotal(); }
+                  string            PosComment() const      { return OrderComment(); }
+                  
+                  
+                  
+                  
+   public: 
+      CTradeOps(); 
+      ~CTradeOps();
+      
+      
+                  void              SYMBOL(string symbol)   { TRADE_SYMBOL = symbol; }
+                  void              MAGIC(int magic)        { TRADE_MAGIC  = magic; }
+                  
+                  string            SYMBOL(void) const      { return TRADE_SYMBOL; }
+                  int               MAGIC(void) const       { return TRADE_MAGIC; }
+                  
+                  int               PosTotal(void) const    { return OrdersTotal(); }
+                  int               PosTicket(void) const   { return OrderTicket(); }
+                  
+      virtual     int               OP_OrderSelectByTicket(int ticket) const  { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES); }
+      virtual     int               OP_OrderSelectByIndex(int index) const    { return OrderSelect(index, SELECT_BY_POS, MODE_TRADES); }
+      virtual     int               OP_HistorySelectByIndex(int index) const  { return OrderSelect(index, SELECT_BY_POS, MODE_HISTORY); }
+                  
+      //--- TRADE OPERATIONS
+      virtual     int      OP_OrdersCloseAll(); 
+      virtual     bool     OP_CloseTrade(int ticket);
+      virtual     int      OP_OrderOpen(string symbol, ENUM_ORDER_TYPE order_type, double volume, double price, double sl, double tp, string comment, datetime expiration = 0); 
+      virtual     bool     OP_TradeMatch(int index);
+      virtual     int      OP_ModifySL(double sl); 
+      virtual     int      OP_ModifyTP(double tp);
+      virtual     int      OP_OrdersCloseBatch(int &orders[]); 
+      
+      //--- MISC FUNCTIONS
+      virtual     bool     OrderIsPending(int ticket); 
+      virtual     int      PopOrderArray(int &tickets[]); 
+      
+      
+
+};     
+
+CTradeOps::CTradeOps(void) {} 
+
+CTradeOps::~CTradeOps(void) {}
+
+bool       CTradeOps::OP_CloseTrade(int ticket) {
+   ResetLastError();
+   int   t     = OP_OrderSelectByTicket(ticket);  
+   double   close_price = 0;
+   ENUM_ORDER_TYPE   order_type  = PosOrderType();
+   
+   switch(order_type) {
+      case ORDER_TYPE_BUY:    close_price = UTIL_PRICE_BID();  break;
+      case ORDER_TYPE_SELL:   close_price = UTIL_PRICE_ASK();  break; 
+      
+   }
+   
+   bool c;
+   switch(order_type) {
+      case ORDER_TYPE_BUY:
+      case ORDER_TYPE_SELL:
+         c  = OrderClose(PosTicket(), PosLots(), close_price, 3);
+         if (!c) PrintFormat("%s: ORDER CLOSE FAILED. TICKET: %i, ERROR: %i", 
+            __FUNCTION__, 
+            PosTicket(), 
+            GetLastError()); 
+         break; 
+      case ORDER_TYPE_BUY_LIMIT:
+      case ORDER_TYPE_SELL_LIMIT:
+         c  = OrderDelete(PosTicket()); 
+         if (!c) PrintFormat("%s: ORDER DELETE FAILED. TICKET: %i, ERROR: %i",
+            __FUNCTION__,
+            PosTicket(),
+            GetLastError());
+         break; 
+      default:
+         c = 0;
+         break; 
+   }
+   return c;    
+}
+
+
+int      CTradeOps::OP_OrderOpen(
+   string symbol,
+   ENUM_ORDER_TYPE order_type,
+   double volume,
+   double price,
+   double sl,
+   double tp,
+   string comment,
+   datetime expiration=0) {
+      int ticket = OrderSend(Symbol(), order_type, NormalizeDouble(volume, 2), price, 3, sl, tp, comment, MAGIC(), expiration);
+      return ticket; 
+}
+
+int      CTradeOps::OP_OrdersCloseAll(void) {
+   int open_positions   = PosTotal(); 
+   CPool<int> *tickets_to_close = new CPool<int>(); 
+   
+   for (int i = 0; i < open_positions; i++) {
+      int s = OP_OrderSelectByIndex(i); 
+      if (!OP_TradeMatch(i)) continue;
+      int ticket  = PosTicket();
+      tickets_to_close.Append(ticket);
+   }
+   
+   int closed     = 0;
+   for (int j = 0; j < tickets_to_close.Size(); j++) {
+      bool c   = OP_CloseTrade(tickets_to_close.Item(j)); 
+      if (c) closed++; 
+   }
+   
+   delete tickets_to_close; 
+   return closed;    
+}
+
+int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
+   CPool <int> *order_pool = new CPool<int>(); 
+   order_pool.Create(orders); 
+   int num_orders = order_pool.Size(); 
+   
+   if (num_orders <= 0) {
+      delete order_pool;
+      return 0; 
+   } 
+   
+   int ticket  = order_pool.Item(0); 
+   
+   bool c      = OP_CloseTrade(ticket); 
+   if (c)   PrintFormat("%s: Trade Closed. Ticket: %i", __FUNCTION__, ticket); 
+   int a       = order_pool.Dequeue(); 
+   if (a > num_orders) {
+      delete order_pool;
+      return -1; 
+   }
+   
+   int extracted[]; 
+   int num_extracted = order_pool.Extract(extracted);
+   
+   delete order_pool; 
+   return OP_OrdersCloseBatch(extracted); 
+}
+
+/*
+int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
+   int num_orders = ArraySize(orders);
+   if (num_orders <= 0) return 0; 
+   
+   int ticket = orders[0]; 
+   
+   int c = OP_CloseTrade(ticket); 
+   int a = PopOrderArray(orders); 
+   if (a > num_orders) return -1; 
+   
+   return OP_OrdersCloseBatch(orders); 
+}
+*/
+int      CTradeOps::PopOrderArray(int &tickets[]) {
+   int temp[]; 
+   int size = ArraySize(tickets); 
+   
+   ArrayResize(temp, size-1); 
+   ArrayCopy(temp, tickets, 0, 1); 
+   ArrayFree(tickets); 
+   ArrayCopy(tickets, temp);
+   return ArraySize(tickets); 
+}
+
+bool     CTradeOps::OP_TradeMatch(int index) {
+   
+   int t = OP_OrderSelectByIndex(index); 
+   if (PosMagic() != MAGIC()) return false;
+   if (PosSymbol() != SYMBOL()) return false; 
+   return true; 
+}
+
+bool     CTradeOps::OrderIsPending(int ticket) {
+   int t = OP_OrderSelectByTicket(ticket); 
+   if (PosOrderType() > 1) return true; 
+   return false;
+}
+
+int      CTradeOps::OP_ModifySL(double sl) {
+   if (sl == PosSL()) return 0; 
+   int m = OrderModify(PosTicket(), PosOpenPrice(), sl, PosTP(), 0); 
+   return m; 
+}

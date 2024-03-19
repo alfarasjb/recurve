@@ -1,35 +1,35 @@
 #include "definition.mqh"
-#include <MAIN/TradeOps.mqh>
-#include "profiles.mqh"
-#include "features.mqh"
-
+#include "positions.mqh"
 
 class CRecurveTrade : public CTradeOps {
 
    protected:
-      
-      // SYMBOL PROPERTIES 
+   
+      //-- SYMBOL PROPERTIES 
       double         tick_value, trade_points, contract_size;
       int            digits; 
       
-      // INTERVALS
-      int            TRADE_INTERVALS[];//, TRADING_DAYS[];
+      //-- INTERVALS
+      CPool<int>        INTERVALS;
+      CPositions<int>   ALGO_POSITIONS;
+      
       
       string         SYMBOLS_PATH, SETTINGS_PATH; 
    private:
    public: 
    
-      // SYMBOL PROPERTIES WRAPPERS 
+      //-- SYMBOL PROPERTIES WRAPPERS 
       double         TICK_VALUE()         { return tick_value; }
       double         TRADE_POINTS()       { return trade_points; }
       double         DIGITS()             { return digits; }
       double         CONTRACT()           { return contract_size; }
       
    
-      // INITIALIZATION
+      //-- CONSTRUCTOR
       CRecurveTrade(); 
       ~CRecurveTrade(); 
   
+      //-- INITIALIZATION
       void           Init(); 
       void           InitializeConfigurationPaths(); 
       void           InitializeFeatureParameters();
@@ -37,7 +37,9 @@ class CRecurveTrade : public CTradeOps {
       void           InitializeIntervals();
       void           InitializeDays();
       void           InitializeConfiguration();
+      void           InitializeOpenPositions(); 
       
+      //-- CONFIG
       void           LoadSettingsFromFile();
       void           LoadSettingsFromInput();
       void           LoadSymbolConfigFromFile();
@@ -45,7 +47,7 @@ class CRecurveTrade : public CTradeOps {
   
       void           GenerateInterval(int &intervals[]);
   
-      // FEATURES 
+      //-- FEATURES 
       string         indicator_path(string indicator_name); 
       
       
@@ -55,7 +57,7 @@ class CRecurveTrade : public CTradeOps {
       double         BBANDS(int mode, int num_sd = 2, int shift = 1);
       double         BBANDS_SLOW(int mode, int num_sd = 2, int shift = 1);
       
-      // FEATURE WRAPPER 
+      //-- FEATURE WRAPPER 
       double         DAY_VOL();
       double         DAY_PEAK_VOL();
       double         UPPER_BANDS();
@@ -64,9 +66,11 @@ class CRecurveTrade : public CTradeOps {
       double         EXTREME_LOWER();
       double         SLOW_UPPER();
       double         SLOW_LOWER();
+      double         PD_UPPER_BANDS();
+      double         PD_LOWER_BANDS(); 
       
       
-      // LOGIC
+      //-- LOGIC
       bool           ValidTradeWindow(); 
       bool           ValidDayVolatility(); 
       bool           ValidDayOfWeek();
@@ -75,7 +79,7 @@ class CRecurveTrade : public CTradeOps {
       bool           ValidInterval();
       bool           DayOfWeekInTradingDays();
       
-      // OPERATIONS 
+      //-- OPERATIONS 
       int            Stage();
       int            SendOrder(TradeParams &PARAMS);
       TradeParams    ParamsLong(ENUM_ORDER_SEND_METHOD method, TradeLayer &layer); 
@@ -88,6 +92,7 @@ class CRecurveTrade : public CTradeOps {
       double         CatastrophicSLFactor(double lot, double var);
       int            CloseOppositeTrade(ENUM_ORDER_TYPE order);
       int            CloseStackedTrade(ENUM_ORDER_TYPE order);
+      int            CloseTradesInProfit(ENUM_ORDER_TYPE order); 
       double         CatastrophicLossVAR();
       double         ValueAtRisk();
       double         FloatingPL();
@@ -96,16 +101,28 @@ class CRecurveTrade : public CTradeOps {
       bool           PreviousDayValid(ENUM_DIRECTION direction);
       string         IntervalsAsString();
       string         DaysAsString();
+      ENUM_SIGNAL    CutLoss(FeatureValues &features); 
+      ENUM_SIGNAL    TakeProfit(FeatureValues &features);
+      bool           ValidStack(ENUM_ORDER_TYPE order); 
+      bool           ValidInvert(ENUM_ORDER_TYPE order); 
+      bool           ValidTakeProfit(ENUM_ORDER_TYPE order); 
+      
+      //-- DATA STRUCTURE
+      int               UpdatePositions();   
+      int               RepopulateAlgoPositions(CPool<int> *&synthetic); 
+      ENUM_ORDER_TYPE   CurrentOpenPosition(); 
+      
+      int            ClosePositions(ENUM_SIGNAL reason); 
       
       
-      
+      //-- GENERIC
       template <typename T>   string      ArrayAsString(T &data[]);
       template <typename T>   void        ClearArray(T &data[]);  
       template <typename T>   void        Append(T &data[], T item);
       template <typename T>   bool        ElementInArray(T element, T &src[]); 
    
-      // UTILITIES 
-      int            logger(string message, string function, bool notify=false, bool debug=true);
+      //-- UTILITIES 
+      int            logger(string message, string function, bool notify=false, bool debug=false);
       bool           notification(string message);
       int            error(string message);
 }; 
@@ -115,12 +132,14 @@ CRecurveTrade::CRecurveTrade(void) {
 }
 
 CRecurveTrade::~CRecurveTrade(void) {
-   ClearArray(CONFIG.trading_days);
-   ClearArray(TRADE_INTERVALS);
+   CONFIG.TRADING_DAYS.Clear(); 
+   INTERVALS.Clear();
+   ALGO_POSITIONS.Clear(); 
 }
 
 void           CRecurveTrade::Init(void) {
    InitializeConfigurationPaths();
+   InitializeOpenPositions(); 
    SYMBOL(Symbol()); 
    MAGIC(InpMagic);
    InitializeFeatureParameters();
@@ -133,6 +152,12 @@ void           CRecurveTrade::Init(void) {
 }
 
 void           CRecurveTrade::InitializeConfigurationPaths(void) {
+   /**
+      Sets local path to directory of configuration files in the MetaQuotes 
+      common folder, selected based on preset configuration. 
+   **/
+   
+   
    switch(InpPreset) {
       case MODE_AGGRESSIVE:
          SYMBOLS_PATH   = "recurve\\symbols\\aggressive\\";
@@ -149,7 +174,9 @@ void           CRecurveTrade::InitializeConfigurationPaths(void) {
 }
 
 void           CRecurveTrade::InitializeSymbolProperties(void) {
-
+   /**
+      Sets symbol properties for trade parameter calculations. 
+   **/
    tick_value     = UTIL_TICK_VAL(); 
    trade_points   = UTIL_TRADE_PTS(); 
    digits         = UTIL_SYMBOL_DIGITS();
@@ -157,16 +184,32 @@ void           CRecurveTrade::InitializeSymbolProperties(void) {
 
 }
 
-// --- ARRAY OPS --- // 
+void           CRecurveTrade::InitializeOpenPositions(void) {
+   /**
+      Initializes current open positions into an array. 
+   **/
+   int num_open_positions  = ALGO_POSITIONS.Init(); 
+   logger(StringFormat("Num Open Positions: %i", num_open_positions), __FUNCTION__); 
+}
+//+------------------------------------------------------------------+
+//| ARRAY OPS                                                        |
+//+------------------------------------------------------------------+
+
 
 template <typename T> 
 void           CRecurveTrade::ClearArray(T &data[]) {
+   /**
+      Generic function for clearing an array. 
+   **/
    ArrayFree(data);
    ArrayResize(data, 0); 
 }
 
 template <typename T> 
 void           CRecurveTrade::Append(T &data[], T item) {
+   /**
+      Generic function for appending to an array. 
+   **/
    int size =     ArraySize(data);
    ArrayResize(data, size + 1);
    data[size] = item; 
@@ -174,6 +217,9 @@ void           CRecurveTrade::Append(T &data[], T item) {
 
 template <typename T> 
 bool           CRecurveTrade::ElementInArray(T element,T &src[]) {
+   /**
+      Generic function for checking if array contains element. 
+   **/
    int size = ArraySize(src);
    for (int i = 0; i < size; i++) {
       T item   = src[i];
@@ -184,7 +230,9 @@ bool           CRecurveTrade::ElementInArray(T element,T &src[]) {
 
 template <typename T> 
 string         CRecurveTrade::ArrayAsString(T &data[]) {
-   
+   /**
+      Returns array as a string 
+   **/
    int size = ArraySize(data);
    string array_string = "";
    for (int i = 0; i < size; i++) {
@@ -194,19 +242,26 @@ string         CRecurveTrade::ArrayAsString(T &data[]) {
    return array_string; 
 }
 
-string         CRecurveTrade::IntervalsAsString(void)       { return ArrayAsString(TRADE_INTERVALS); } 
-string         CRecurveTrade::DaysAsString(void)            { return ArrayAsString(CONFIG.trading_days); }
+string         CRecurveTrade::IntervalsAsString(void)       { return INTERVALS.ArrayAsString(); }
+string         CRecurveTrade::DaysAsString(void)            { return CONFIG.TRADING_DAYS.ArrayAsString(); }
 
 
-// --- INITIALIZATION AND CONFIG --- // 
+//+------------------------------------------------------------------+
+//| INITIALIZATION AND CONFIG                                        |
+//+------------------------------------------------------------------+
+
 void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
    
+   /**
+      Loads symbol configuration from MetaQuotes common folder. 
+   **/   
    
    
    CFeatureLoader *feature    = new CFeatureLoader(SYMBOLS_PATH, Symbol());
    bool loaded = feature.LoadFile(ParseSymbolConfig);
    int num_trading_days = ArraySize(SYMBOL_CONFIG.trade_days);
    
+   //-- Returns Input configuration if config file is not found for attached symbol. 
    if (num_trading_days == 0) {
       string message = StringFormat("No Config found for %s. Using inputs.", Symbol()); 
       error(message);
@@ -216,9 +271,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
       return;
    }
    
-   ArrayResize(CONFIG.trading_days, num_trading_days);
-   ArrayCopy(CONFIG.trading_days, SYMBOL_CONFIG.trade_days); 
-   
+   CONFIG.TRADING_DAYS.Create(SYMBOL_CONFIG.trade_days);
    CONFIG.low_volatility_thresh  = SYMBOL_CONFIG.low_volatility_threshold; 
    CONFIG.use_pd                 = (bool)SYMBOL_CONFIG.trade_use_pd; 
    CONFIG.sl                     = SYMBOL_CONFIG.sl; 
@@ -227,6 +280,10 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
 }
 
 void           CRecurveTrade::LoadSymbolConfigFromInput(void) {
+   /**
+      Loads symbol configuration from EA Inputs. 
+   **/
+   
    InitializeDays();
    CONFIG.low_volatility_thresh  = InpLowVolThresh;
    CONFIG.use_pd                 = InpUsePrevDay;
@@ -234,6 +291,9 @@ void           CRecurveTrade::LoadSymbolConfigFromInput(void) {
 }
 
 void           CRecurveTrade::LoadSettingsFromFile(void) {
+   /**
+      Loads global settings and feature parameters from MetaQuotes common folder. 
+   **/
    
    CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_DIRECTORY, SETTINGS_PATH);
    bool load      = feature.LoadFile(Parse); 
@@ -255,14 +315,15 @@ void           CRecurveTrade::LoadSettingsFromFile(void) {
    FEATURE_CONFIG.ENTRY_WINDOW_OPEN                  = SETTINGS.entry_window_open;
    FEATURE_CONFIG.ENTRY_WINDOW_CLOSE                 = SETTINGS.entry_window_close; 
    FEATURE_CONFIG.TRADE_DEADLINE                     = SETTINGS.trade_deadline;
-   FEATURE_CONFIG.CATLOSS                            = SETTINGS.catloss;
-   FEATURE_CONFIG.RPT                                = SETTINGS.rpt; 
+   FEATURE_CONFIG.CATLOSS                            = SETTINGS.catloss;         // PERCENT
+   FEATURE_CONFIG.RPT                                = SETTINGS.rpt;             // PERCENT
    FEATURE_CONFIG.MIN_SL_DISTANCE                    = SETTINGS.min_sl_distance; 
    FEATURE_CONFIG.INDICATOR_PATH                     = SETTINGS.indicator_path;
    FEATURE_CONFIG.SKEW_FILENAME                      = SETTINGS.skew_filename;
    FEATURE_CONFIG.SPREAD_FILENAME                    = SETTINGS.spread_filename;
    FEATURE_CONFIG.SDEV_FILENAME                      = SETTINGS.sdev_filename; 
    delete feature;
+   
 }
 
 void           CRecurveTrade::InitializeFeatureParameters(void)         { LoadSettingsFromFile(); } 
@@ -270,8 +331,19 @@ void           CRecurveTrade::InitializeFeatureParameters(void)         { LoadSe
 
 
 void           CRecurveTrade::InitializeConfiguration(void) {
+   /**
+      Initializes global and symbol configuration based on input. 
+      
+      FILE:
+         loads from common folder
+      
+      INPUT:
+         loads from input
+   **/
    
-   ClearArray(CONFIG.trading_days); 
+   CONFIG.TRADING_DAYS.Clear(); 
+   
+   //-- Loads config based on source: Input or File (Located in common folder)
    switch(InpConfig) {
       case FILE:
          logger("Loading Config from Settings.", __FUNCTION__);
@@ -288,29 +360,46 @@ void           CRecurveTrade::InitializeConfiguration(void) {
    CONFIG.days_string      = DaysAsString();
    CONFIG.intervals_string = IntervalsAsString(); 
    
-   logger(StringFormat("Num Trading Days: %i, Days: %s, Volatility: %f", ArraySize(CONFIG.trading_days), DaysAsString(), CONFIG.low_volatility_thresh), __FUNCTION__);
+   logger(StringFormat("Num Trading Days: %i, Days: %s, Volatility: %f", 
+      CONFIG.TRADING_DAYS.Size(), 
+      DaysAsString(), 
+      CONFIG.low_volatility_thresh), __FUNCTION__);
 }
 
 void           CRecurveTrade::InitializeDays(void) {
    
+   /**
+      Creates trading days array based on input days string. 
+   **/
    string result[];
    int split = StringSplit(InpDaysString, ',', result);
-   for (int i = 0; i < split; i++) Append(CONFIG.trading_days, (int)result[i]);
-   int size = ArraySize(CONFIG.trading_days);
+   for (int i = 0; i < split; i++) {
+      int day = (int)result[i]; 
+      CONFIG.TRADING_DAYS.Append(day); 
+   }
+   int size = CONFIG.TRADING_DAYS.Size(); 
    logger(StringFormat("%i Trading Days Valid.", size), __FUNCTION__);
 }
 
 void           CRecurveTrade::InitializeIntervals(void) {
    
+   /**
+      Initializes interval based on input. 
+   **/
+   
+   //-- Returns if selected timeframe does not match input timeframe. 
    ENUM_TIMEFRAMES   current_timeframe = Period();
    if (current_timeframe != InpRPTimeframe && InpRPTimeframe != PERIOD_CURRENT) {
       logger(StringFormat("Invalid Timeframe. Selected: %i, Target: %s", Period(), EnumToString(InpRPTimeframe)), __FUNCTION__);
       return;
    }
    
+   //-- generating intervals if frequency is not used. 
    int   intervals_quarter[4]    = {0, 15, 30, 45};
    int   intervals_half[2]       = {0, 30};
    int   intervals_full[1]       = {0}; 
+   
+   //-- Generates interval if frequency is used. 
    if (!InpUseFrequency)
       switch(current_timeframe) {
          case PERIOD_M15:     GenerateInterval(intervals_quarter); break;
@@ -327,9 +416,10 @@ void           CRecurveTrade::InitializeIntervals(void) {
 
 
 void           CRecurveTrade::GenerateInterval(int &intervals[]) {
-   int size    = ArraySize(intervals);
-   ArrayResize(TRADE_INTERVALS, size);
-   ArrayCopy(TRADE_INTERVALS, intervals);
+   /**
+      Copies specified interval into TRADE_INTERVALS array to be used later. 
+   **/
+   int itv=INTERVALS.Create(intervals); 
 }
 
 
@@ -337,18 +427,24 @@ void           CRecurveTrade::GenerateInterval(int &intervals[]) {
 
 
 
-// --- TRADE OPS AND POSITION SIZING --- // 
+//+------------------------------------------------------------------+
+//| TRADE OPS AND POSITION SIZING                                    |
+//+------------------------------------------------------------------+
 
 
 double         CRecurveTrade::CatastrophicLossVAR(void) {
-
+   /**
+      Calculates Catastrophic VAR in USD
+   **/
    double balance    = UTIL_ACCOUNT_BALANCE(); 
    double var        = balance * FEATURE_CONFIG.CATLOSS / 100; 
    return var; 
 }
 
 double         CRecurveTrade::ValueAtRisk(void) {
-   
+   /**
+      Calculates VAR in USD 
+   **/
    double balance    = UTIL_ACCOUNT_BALANCE(); 
    double var        = balance * FEATURE_CONFIG.RPT / 100; 
    return var;
@@ -357,18 +453,30 @@ double         CRecurveTrade::ValueAtRisk(void) {
 
 
 double         CRecurveTrade::CalcLot(double sl_distance) {
-
-   /*
-   lot = (var * trade_point) / (sl_ticks * tick_value)
-   */
+   
+   /**
+      Calculates Lot Size
+   **/
+   
+   
+   //-- Returns fixed lot if override is used. 
+   if (InpUseFixedLot) return InpFixedLot; 
+   
    double var           = ValueAtRisk();
    double lot_size      = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()); 
    
+   //-- Symbol max lot and min lot 
    double min_lot       = UTIL_SYMBOL_MINLOT();
    double max_lot       = UTIL_SYMBOL_MAXLOT(); 
    
+   //-- Returns min_lot if calculated lot is below instrument specification 
    if (lot_size < min_lot) return min_lot;
+   
+   //-- Returns max_lot if calculated lot is above instrument specification 
    if (lot_size > max_lot) return max_lot;
+   
+   //-- Returns input lot if calculated lot is above input lot
+   if (lot_size > InpMaxLot) return InpMaxLot; 
    
    return lot_size; 
 
@@ -376,18 +484,27 @@ double         CRecurveTrade::CalcLot(double sl_distance) {
 
 double         CRecurveTrade::SLFactor(double entry_price) {
    
+   /**
+      Calculates SL factor for calculating synthetic SL. 
+   **/
+   
+   // -- Volatility Factor is used for calculating SL factor for virtual SL, and lot size. 
    double volatility_factor      = (DAY_VOL() * 0.5) / TRADE_POINTS(); 
    double minimum_sl             = FEATURE_CONFIG.MIN_SL_DISTANCE;
    double derived_sl             = CONFIG.sl;
    
+   //-- Returns derived sl if calculated sl is below specified symbol minimum sl ticks. 
    double sl_factor              = volatility_factor < minimum_sl ? derived_sl : volatility_factor * TRADE_POINTS(); 
    return sl_factor;
 }
 
 double         CRecurveTrade::CatastrophicSLFactor(double lot,double var) {
-
-   // sl ticks = (var * trade_point) / (lot * tick value)
    
+   /**
+      Calculates SL factor for Catastrophic Loss. 
+   **/
+   
+   // -- Returns ticks for catastrophic SL 
    double sl_ticks = (var * TRADE_POINTS()) / (lot * TICK_VALUE()); 
    return sl_ticks; 
 
@@ -397,6 +514,9 @@ double         CRecurveTrade::CatastrophicSLFactor(double lot,double var) {
 
 TradeParams    CRecurveTrade::ParamsLong(ENUM_ORDER_SEND_METHOD method,TradeLayer &layer) {
    
+   /**
+      Sets Trade Parameters for Long Positions
+   **/
    
    TradeParams    PARAMS;
    PARAMS.entry_price      = UTIL_PRICE_ASK();
@@ -415,6 +535,10 @@ TradeParams    CRecurveTrade::ParamsLong(ENUM_ORDER_SEND_METHOD method,TradeLaye
 
 TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLayer &layer) {
    
+   /**
+      Sets Trade Params for Short Positions
+   **/
+   
    TradeParams    PARAMS;
    PARAMS.entry_price      = UTIL_PRICE_BID();
    double virtual_sl       = PARAMS.entry_price + SLFactor(PARAMS.entry_price);
@@ -432,15 +556,21 @@ TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLay
 
 int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
 
+   /**
+      Send Market Order
+   **/
+
+   //-- Returns if trade window is closed. 
    if (!ValidTradeWindow()) { 
       logger("ORDER SEND FAILED. Trade window is closed.", __FUNCTION__);
       return 0;
    }
    
+   //-- Returns if interval is invalid: selected timeframe does not match input timeframe. 
    if (!ValidInterval()) {
       string error_message = StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", TimeMinute(TimeCurrent()));
       logger(error_message, __FUNCTION__); 
-      error(error_message);
+      //error(error_message);
       return 0;
    }
 
@@ -483,39 +613,50 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    logger(StringFormat("Updated active positions: %i, Ticket: %i", NumActivePositions(), pos.pos_ticket), __FUNCTION__);
    //AddOrderToday();
    */
+   
+   if (!ALGO_POSITIONS.Search(ticket)) ALGO_POSITIONS.Append(ticket); 
    logger(StringFormat("Order Placed. Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f", 
       ticket,
       EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type), 
       PARAMS.volume, 
       PARAMS.entry_price, 
       PARAMS.sl_price), __FUNCTION__);
-      
+   
+   // match algo positions with current order pool 
+   int update  = UpdatePositions(); 
    return ticket; 
 
 }
 
+
 int            CRecurveTrade::CloseOrder(void) {
-   //logger("Close All Orders.", __FUNCTION__);
+   /**
+      Close All Orders
+   **/
    int num_positions    = PosTotal();
    
-   for (int i = 0; i < num_positions; i ++) {
-      int c = OP_OrdersCloseAll(); 
-         
-   }
+   for (int i = 0; i < num_positions; i ++) int c = OP_OrdersCloseAll(); 
+   UpdatePositions(); 
    return 1;
 
 }
 
 double         CRecurveTrade::FloatingPL(void) {
-
+   /**
+      Calculates Floating PL for EA positions for specific symbol
+   **/
    int num_trades = PosTotal(); 
    
    double floating_pl   = 0;
    int    trades_found  = 0;
+   
    for (int i = 0; i < num_trades; i++) {
       int t = OP_OrderSelectByIndex(i);
+      //-- Skips if ticket does not match attached symbol 
       if (!OP_TradeMatch(i)) continue; 
+      //-- Adds floating pL 
       floating_pl += PosProfit();
+      //-- Adds trades found
       trades_found++;
    }
    if (trades_found > 0) logger(StringFormat("%i Open Positions Found for %s. Floating P/L: %f", 
@@ -526,19 +667,23 @@ double         CRecurveTrade::FloatingPL(void) {
 }
 
 bool        CRecurveTrade::InFloatingLoss(void) {
+   /*
+      Returns true if trades in symbol is in floating loss. 
+   **/
    double   floating_pl    = FloatingPL(); 
    if (floating_pl >= 0) return false; 
    logger(StringFormat("%s is in floating loss.", Symbol()), __FUNCTION__);
    return true; 
 }
 
+/*
 int            CRecurveTrade::CloseOppositeTrade(ENUM_ORDER_TYPE order) {
-   
+
    int num_trades = PosTotal(); 
+   int extracted[]; 
    
-   int trades_to_close[];
-   ClearArray(trades_to_close); 
-   
+   CPool<int> *trades_to_close = new CPool<int>(); 
+   //trades_to_close.Clear(); 
    logger(StringFormat("Close Opposite Trade. Positions Open: %i, Orders to ignore: %s", 
       num_trades, 
       EnumToString(order)), __FUNCTION__);
@@ -546,18 +691,19 @@ int            CRecurveTrade::CloseOppositeTrade(ENUM_ORDER_TYPE order) {
    bool valid_interval  = ValidInterval();
    for (int i = 0; i < num_trades; i++) {
       int t = OP_OrderSelectByIndex(i);
-      if (!OP_TradeMatch(i)) continue; 
-      if (PosOrderType() == order) continue; 
-      if (PosProfit() > 0 && !valid_interval) continue; // ignore orders in profit
+      if (!OP_TradeMatch(i))                    continue; 
+      if (PosOrderType() == order)              continue; 
+      if (PosProfit() > 0 && !valid_interval)   continue; // ignore orders in profit
       
-      Append(trades_to_close, PosTicket());
-             
+      int ticket_to_close = PosTicket(); 
+      trades_to_close.Append(ticket_to_close); 
    
    }
+   int target_trades_to_close = trades_to_close.Size(); 
+   int num_extracted = trades_to_close.Extract(extracted); 
+   logger(StringFormat("Target: %i, Extracted: %i", target_trades_to_close, num_extracted), __FUNCTION__); 
    
-   int target_trades_to_close = ArraySize(trades_to_close);
-   
-   int closed_orders = OP_OrdersCloseBatch(trades_to_close);
+   int closed_orders = OP_OrdersCloseBatch(extracted);
    logger(StringFormat("Closed %i Opposite Trades.", closed_orders), __FUNCTION__);
    if (target_trades_to_close != closed_orders) {
       logger(StringFormat("Failed to close opposite trades. Target: %i, Closed: %i", target_trades_to_close, closed_orders), __FUNCTION__);
@@ -565,6 +711,30 @@ int            CRecurveTrade::CloseOppositeTrade(ENUM_ORDER_TYPE order) {
       CloseOppositeTrade(order); 
       
    }
+   delete trades_to_close; 
+   return closed_orders; 
+}
+
+
+int            CRecurveTrade::CloseTradesInProfit(ENUM_ORDER_TYPE order) {
+   
+   int num_trades = PosTotal(); 
+   
+   int trades_to_close[]; 
+   
+   ClearArray(trades_to_close); 
+   logger(StringFormat("Positions Open: %i", num_trades), __FUNCTION__); 
+   
+   for (int i = 0; i < num_trades; i++) {
+      int t = OP_OrderSelectByIndex(i); 
+      if (!OP_TradeMatch(i))        continue; 
+      if (PosOrderType() != order)  continue; 
+      if (PosProfit() < 0)          continue; 
+      
+      Append(trades_to_close, PosTicket()); 
+   }
+   int   closed_orders = OP_OrdersCloseBatch(trades_to_close); 
+   logger(StringFormat("Secured %i rades in profit.", closed_orders), __FUNCTION__); 
    return closed_orders; 
 }
 
@@ -581,10 +751,10 @@ int            CRecurveTrade::CloseStackedTrade(ENUM_ORDER_TYPE order) {
    bool valid_interval  = ValidInterval();
    for (int i = 0; i < num_trades; i++ ){ 
       int t = OP_OrderSelectByIndex(i);
-      if (!OP_TradeMatch(i)) continue; 
-      if (PosOrderType() != order) continue; 
-      if (PosProfit() < 0 && !valid_interval) continue; // skip trades in profit 
-      if (PosProfit() > 0 && valid_interval) continue;
+      if (!OP_TradeMatch(i))                    continue; 
+      if (PosOrderType() != order)              continue; 
+      if (PosProfit() < 0 && !valid_interval)   continue; // skip trades in profit 
+      if (PosProfit() > 0 && valid_interval)    continue;
       
       Append(trades_to_close, PosTicket());
       
@@ -594,44 +764,235 @@ int            CRecurveTrade::CloseStackedTrade(ENUM_ORDER_TYPE order) {
    return closed_orders;
 
 }
+*/
+bool           CRecurveTrade::ValidStack(ENUM_ORDER_TYPE order) {
+   /**
+      Determines if closing stacked position is valid. 
+   **/
+   bool valid_interval  = ValidInterval();
+   if (PosOrderType() != order) return false; 
+   //--- Ignores positions at loss and invalid interval 
+   //--- Cuts losing positions and repositions
+   if (PosProfit() < 0 && !valid_interval) return false;
+   //--- Ignores positions in profit and valid interval 
+   //--- Allows adding to winning positions  
+   if (PosProfit() > 0 && valid_interval) return false; 
+   return true; 
+}
+
+bool            CRecurveTrade::ValidInvert(ENUM_ORDER_TYPE order) {
+   /**
+      Determines if closing inverted position is valid.
+   **/
+   bool valid_interval  = ValidInterval();
+   if (PosOrderType() == order) return false;
+   //--- Ignores positions in profit and invalid interval 
+   if (PosProfit() > 0 && !valid_interval) return false;
+   return true; 
+}
+
+bool           CRecurveTrade::ValidTakeProfit(ENUM_ORDER_TYPE order) {
+   /**
+      Determines if profit taking is valid. 
+   **/
+   if (PosOrderType() != order) return false; 
+   //--- Ignores positions in loss 
+   if (PosProfit() < 0) return false; 
+   return true; 
+}
+
+int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
+   /**
+      Close Positions baseed on reason 
+      
+      Close logic varies with signal 
+   **/
+   
+   int num_trades = PosTotal(); 
+   
+   CPool<int> *trades_to_close = new CPool<int>(); 
+   
+   for (int i = 0; i < num_trades; i++) {
+      int t = OP_OrderSelectByIndex(i); 
+      if (!OP_TradeMatch(i)) continue; 
+      
+      ENUM_ORDER_TYPE current_position = CurrentOpenPosition(), order = PosOrderType(); 
+      int ticket  = PosTicket(); 
+      bool valid_interval  = ValidInterval();
+      logger(StringFormat("Signal: %s Ticket: %i", EnumToString(reason), ticket), __FUNCTION__, false, true);
+      
+      bool c=false; 
+      switch(reason) {
+         case TRADE_LONG:
+            if (!ValidInvert(ORDER_TYPE_BUY)) continue; 
+            if (!ValidStack(ORDER_TYPE_BUY)) continue; 
+            break; 
+         case TRADE_SHORT:
+            if (!ValidInvert(ORDER_TYPE_SELL)) continue; 
+            if (!ValidStack(ORDER_TYPE_SELL)) continue;
+            break; 
+         case CUT_LONG:
+            if (!ValidStack(ORDER_TYPE_BUY)) continue;
+            break; 
+         case CUT_SHORT:
+            if (!ValidStack(ORDER_TYPE_SELL)) continue;
+            break; 
+         case TAKE_PROFIT_LONG:
+            if (!ValidTakeProfit(ORDER_TYPE_BUY)) continue; 
+            break; 
+         case TAKE_PROFIT_SHORT: 
+            if (!ValidTakeProfit(ORDER_TYPE_SELL)) continue;
+            break; 
+         default: continue; 
+      }
+      trades_to_close.Append(ticket); 
+   }
+   
+   int extracted[]; 
+   int num_extracted = trades_to_close.Extract(extracted); 
+   
+   int num_closed = OP_OrdersCloseBatch(extracted); 
+   logger(StringFormat("Num Closed: %i", num_closed), __FUNCTION__);
+   
+   delete trades_to_close; 
+   UpdatePositions(); 
+   return num_closed; 
+}
 
 
 int            CRecurveTrade::SendOrder(TradeParams &PARAMS) {
-   // CLOSE ALL OPEN TRADES IF STACKING IS DISABLED
-   // CLOSE OPPOSITE TRADES IF OPPOSITE SIGNAL    }
    logger(StringFormat("Sending Order. Order Type :%s", 
       EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type)), __FUNCTION__);
-   // Close Stack Order
-   CloseOppositeTrade((ENUM_ORDER_TYPE)PARAMS.order_type);
-   CloseStackedTrade((ENUM_ORDER_TYPE)PARAMS.order_type);
    return SendMarketOrder(PARAMS);
 
 }
 
+//+------------------------------------------------------------------+
+//| DATA STRUCTURE                                                   |
+//+------------------------------------------------------------------+
 
 
+int            CRecurveTrade::UpdatePositions(void) {
+   /**
+      Objective: Contents of ALGO_POSITIONS must be in order pool and vice versa. 
+      Count matching orders in order pool, 
+      Count size of algopositions 
+      
+      if length mismatch, reset algo positions and repopulate 
+      
+      if same length, validate 
+      
+      if ticket mismatch, repopulate 
+   **/
+   
+   
+   int open_positions = PosTotal(); 
+   if (open_positions == 0) {
+      logger("No Open Positions. Order pool is empty.", __FUNCTION__); 
+      return open_positions; 
+   }
+   
+   //-- Synthetic order pool for comparing contents of ALGO_POSITIONS
+   CPool<int> *synthetic   = new CPool<int>(); 
+   
+   
+   int updated_size = 0;
+   //-- Iterate through order pool and find open positions with matching symbol and magic number
+   for (int i = 0; i < open_positions; i++) {
+      int s = OP_OrderSelectByIndex(i); 
+      if (!OP_TradeMatch(i)) continue; //-- Skips if symbol and magic number do not match. 
+      
+      int ticket = PosTicket(); 
+      synthetic.Append(ticket); 
+   }
+   
+   int synth_size = synthetic.Size(), algo_size = ALGO_POSITIONS.Size(); 
+   
+   if (synth_size == 0) {
+      ALGO_POSITIONS.Clear();
+      logger(StringFormat("No Open Positions. Algo: %i. Reset Size: %i", algo_size, ALGO_POSITIONS.Size()), __FUNCTION__); 
+      delete synthetic; 
+      return algo_size; 
+   }
+   
+   if (synth_size != algo_size) {
+      logger(StringFormat("Order pool and Algo Positions length mismatch. Repopulating Algo Positions. Pool: %i, Algo: %i", 
+         synth_size, 
+         algo_size), __FUNCTION__); 
+         
+      updated_size   = RepopulateAlgoPositions(synthetic);       
+      delete synthetic; 
+      return ALGO_POSITIONS.Size(); 
+   } 
+   
+   else {
+      //-- Match tickets 
+      logger("Order pool and Algo Positions length matched. Verifying.", __FUNCTION__); 
+      for (int j = 0; j < algo_size; j++) {
+         if (synthetic.Item(j) != ALGO_POSITIONS.Item(j)) {
+            //-- If elements are mismatched, algo positions will be repopulated. 
+            updated_size = RepopulateAlgoPositions(synthetic);
+            delete synthetic;
+            return ALGO_POSITIONS.Size(); 
+         }
+      }
+   }
+   
+   logger("Tickets stored in Algo Positions are valid.", __FUNCTION__, false, true); 
+   delete synthetic; 
+   return ALGO_POSITIONS.Size(); 
+   
+}
 
-// --- LOGIC -- // 
+
+int            CRecurveTrade::RepopulateAlgoPositions(CPool<int> *&synth) {
+   
+   int extracted[]; 
+   int num_extracted = synth.Extract(extracted); 
+   
+   ALGO_POSITIONS.Clear();
+   ALGO_POSITIONS.Create(extracted); 
+   
+   return ALGO_POSITIONS.Size(); 
+}
+
+
+ENUM_ORDER_TYPE   CRecurveTrade::CurrentOpenPosition(void) {
+   int size = ALGO_POSITIONS.Size(); 
+   
+   for (int i = 0; i < size; i++) {
+      int ticket  = ALGO_POSITIONS.Item(i); 
+      int s       = OP_OrderSelectByTicket(ticket);
+      return PosOrderType(); 
+   }
+   return -1; 
+}
+
+//+------------------------------------------------------------------+
+//| LOGIC                                                            |
+//+------------------------------------------------------------------+
+
 bool           CRecurveTrade::ValidInterval(void) {
    
+   //-- Intervals are automatically valid if config is overridden. 
    if (InpIgnoreIntervals) return true; 
    int minute  = TimeMinute(TimeCurrent());
    
-   int size    = ArraySize(TRADE_INTERVALS);
+   int size    = INTERVALS.Size(); 
    
+   //-- Returns true if no intervals are stored. 
    if (size == 0) {
       logger("Empty Interval. Returning True.", __FUNCTION__);
       return true;
    }
    
-   for (int i = 0; i < size; i++) {
-      int interval = TRADE_INTERVALS[i];
-      if (minute == interval) return true;
-   }
+   //-- Returns true if current minute is in valid intervals.
+   if (INTERVALS.Search(minute)) return true; 
    return false;
 }
 
 bool           CRecurveTrade::EndOfDay(void) {
+   //-- Determines end of trading window 
    int hour = TimeHour(TimeCurrent());
    if (hour > FEATURE_CONFIG.ENTRY_WINDOW_CLOSE) return true;
    return false; 
@@ -641,10 +1002,15 @@ bool           CRecurveTrade::EndOfDay(void) {
 
 bool           CRecurveTrade::ValidDayVolatility(void) {
 
+   /**
+      Returns true if daily volatility is valid based on model parameters. 
+   **/
+
    double day_volatility      = DAY_VOL();
    double day_peak            = DAY_PEAK_VOL(); 
-   //double minimum_volatility  = 0.00682; // NEED
+   
    double minimum_volatility  = CONFIG.low_volatility_thresh;  
+   
    
    if (day_volatility > day_peak)            return false; 
    if (InpIgnoreLowVol)                      return true; 
@@ -658,7 +1024,7 @@ bool           CRecurveTrade::ValidDayVolatility(void) {
 bool           CRecurveTrade::DayOfWeekInTradingDays(void) {
    if (InpIgnoreDayOfWeek) return true; 
    int current_day_of_week    = DayOfWeek() - 1; 
-   if (ElementInArray(current_day_of_week, CONFIG.trading_days)) return true; 
+   if (CONFIG.TRADING_DAYS.Search(current_day_of_week)) return true; 
    return false; 
 }
 
@@ -666,6 +1032,11 @@ bool           CRecurveTrade::ValidDayOfWeek(void) { return DayOfWeekInTradingDa
 
 
 int            CRecurveTrade::Stage() { 
+   
+   /**
+      Staging algo logic 
+   **/
+   
    RISK.var                = ValueAtRisk();
    RISK.cat_var            = CatastrophicLossVAR(); 
    RISK.valid_day_of_week  = ValidDayOfWeek(); 
@@ -676,12 +1047,14 @@ int            CRecurveTrade::Stage() {
    if (!RISK.valid_day_of_week) return 0;
    if (!RISK.valid_day_vol)   return 0; 
    
-   
+   //-- Sets latest feature values 
    FeatureValues  LatestFeatureValues     = SetLatestFeatureValues(); 
    
+   //-- Generates signal based on latest feature values 
    ENUM_SIGNAL signal   = Signal(LatestFeatureValues);
    
    
+   //-- Currently not used. Primarily for layering
    TradeLayer     LAYER;
    LAYER.layer          = LAYER_PRIMARY;
    LAYER.allocation     = 1.0;  
@@ -694,23 +1067,36 @@ int            CRecurveTrade::Stage() {
       DAY_VOL(),
       DAY_PEAK_VOL()
       );
-   
+      
+      //--- Close Positions (Stack/Invert/Take Profit/Cut)
+      ClosePositions(signal); 
    }
    
    switch(signal) {
-      //case 0:        return 0; 
       case TRADE_LONG: 
          logger("Send Order: Long", __FUNCTION__);       
          return SendOrder(ParamsLong(MODE_MARKET, LAYER)); // SEND LONG 
+         
       case TRADE_SHORT:       
          logger("Send Order: Short", __FUNCTION__);
          return SendOrder(ParamsShort(MODE_MARKET, LAYER));  // SEND SHORT 
+      /*
       case CUT_LONG:
          logger("Cut Long", __FUNCTION__);
          return CloseStackedTrade(ORDER_TYPE_BUY);
+         
       case CUT_SHORT: 
          logger("Cut Short", __FUNCTION__);
          return CloseStackedTrade(ORDER_TYPE_SELL);
+         
+      case TAKE_PROFIT_LONG:  
+         logger("Take Profit Long", __FUNCTION__);
+         return CloseStackedTrade(ORDER_TYPE_BUY); 
+         
+      case TAKE_PROFIT_SHORT:
+         logger("Take Profit Short", __FUNCTION__);
+         return CloseStackedTrade(ORDER_TYPE_SELL); 
+      */
       default:       break;
       
    }
@@ -719,6 +1105,9 @@ int            CRecurveTrade::Stage() {
 
 bool           CRecurveTrade::ValidTradeWindow(void) {
 
+   /**
+      Checks if entry window is open
+   **/
    int hour             = TimeHour(TimeCurrent()); 
    int minute           = TimeMinute(TimeCurrent()); 
    int ENTRY_HOUR       = FEATURE_CONFIG.ENTRY_WINDOW_OPEN; // convert to input 
@@ -732,14 +1121,26 @@ bool           CRecurveTrade::ValidTradeWindow(void) {
 
 bool           CRecurveTrade::PreviousDayValid(ENUM_DIRECTION direction) {
    
+   /**
+      Optional logic condition for specified pairs. 
+      
+   **/
+   
    if (!CONFIG.use_pd) return true; 
+   
+   double   pd_upper_band  = PD_UPPER_BANDS();
+   double   pd_lower_band  = PD_LOWER_BANDS(); 
+   
+   /*
+      Secondary condition is temporarily silenced since algo requires updated config on trading days. 
+   */
    
    switch(direction) {
       case LONG: 
-         if (UTIL_CANDLE_LOW() > UTIL_PREVIOUS_DAY_LOW()) return true; 
+         if (UTIL_CANDLE_LOW() > UTIL_PREVIOUS_DAY_LOW()/* && (UTIL_CANDLE_OPEN(1) > pd_lower_band)*/) return true; 
          return false; 
       case SHORT:   
-         if (UTIL_CANDLE_HIGH() < UTIL_PREVIOUS_DAY_HIGH()) return true;
+         if (UTIL_CANDLE_HIGH() < UTIL_PREVIOUS_DAY_HIGH()/* && (UTIL_CANDLE_OPEN(1) < pd_upper_band)*/) return true;
          return false;
    }
    return false; 
@@ -748,33 +1149,90 @@ bool           CRecurveTrade::PreviousDayValid(ENUM_DIRECTION direction) {
 
 
 ENUM_SIGNAL    CRecurveTrade::Signal(FeatureValues &features) {
-
-   double spread_trigger      = FEATURE_CONFIG.SPREAD_THRESHOLD;
-   double skew_trigger        = FEATURE_CONFIG.SKEW_THRESHOLD;
    
+   /**
+      Main signal logic 
+   **/
    
-   if ((features.skew_value > skew_trigger) 
-      && (features.standard_score_value > spread_trigger) 
+   double last_open           = UTIL_CANDLE_OPEN(1);
+   double last_close          = UTIL_CANDLE_CLOSE(1); 
+   
+   //-- Short condition
+   if ((features.skew_value > FEATURE_CONFIG.SKEW_THRESHOLD) 
+      && (features.standard_score_value > FEATURE_CONFIG.SPREAD_THRESHOLD) 
       && (features.last_candle_high > features.upper_bands)
+      && (last_close > last_open)
       && PreviousDayValid(SHORT)) return TRADE_SHORT;
    
-   
-   if ((features.skew_value < -skew_trigger) 
-      && (features.standard_score_value <- spread_trigger)
+   //-- Long Condition 
+   if ((features.skew_value < -FEATURE_CONFIG.SKEW_THRESHOLD) 
+      && (features.standard_score_value <- FEATURE_CONFIG.SPREAD_THRESHOLD)
       && (features.last_candle_low < features.lower_bands)
+      && (last_close < last_open)
       && PreviousDayValid(LONG)) return TRADE_LONG;
    
-   if (InFloatingLoss()) {
-      if ((features.skew_value <= -skew_trigger || features.standard_score_value <= -spread_trigger) && (features.last_candle_close > features.slow_upper)) return CUT_SHORT; 
-      if ((features.skew_value >= skew_trigger || features.standard_score_value >= spread_trigger) && (features.last_candle_close < features.slow_lower)) return CUT_LONG;
+   
+   bool floating_loss         = InFloatingLoss(); 
+   
+   //-- Additional methods to take profit or cut losses 
+   switch(floating_loss) {
+      case true:        return CutLoss(features); 
+      case false:       return TakeProfit(features); 
    }
    
    return SIGNAL_NONE;
    
 }
 
+ENUM_SIGNAL    CRecurveTrade::CutLoss(FeatureValues &features) {
+   /**
+      Main logic for cutting losses based on latest feature values. 
+   **/
+   
+   //-- Cut Short condition 
+   if ((features.skew_value <= -FEATURE_CONFIG.SKEW_THRESHOLD 
+      || features.standard_score_value <= -FEATURE_CONFIG.SPREAD_THRESHOLD) 
+      && (features.last_candle_close > features.slow_upper)) 
+      return CUT_SHORT; 
+      
+   //-- Cut Long condition 
+   if ((features.skew_value >= FEATURE_CONFIG.SKEW_THRESHOLD 
+      || features.standard_score_value >= FEATURE_CONFIG.SPREAD_THRESHOLD) 
+      && (features.last_candle_close < features.slow_lower)) 
+      return CUT_LONG;
+      
+   return SIGNAL_NONE; 
+}
+
+
+ENUM_SIGNAL    CRecurveTrade::TakeProfit(FeatureValues &features) {
+   /**
+      Main logic for securing profits based on latest feature values. 
+      
+      Used for selected pairs only. 
+   **/
+   
+   if (!CONFIG.use_pd) return SIGNAL_NONE; 
+   
+   //-- Take Profit Long Condition 
+   if ((features.standard_score_value >= FEATURE_CONFIG.SPREAD_THRESHOLD) 
+      && (features.last_candle_high > features.upper_bands)) 
+      return TAKE_PROFIT_LONG; 
+   
+   //-- Take Profit Short Condition 
+   if ((features.standard_score_value <= -FEATURE_CONFIG.SPREAD_THRESHOLD) 
+      && (features.last_candle_low < features.lower_bands)) 
+      return TAKE_PROFIT_SHORT; 
+
+   return SIGNAL_NONE;
+}
+
+
 FeatureValues  CRecurveTrade::SetLatestFeatureValues(void) {
    
+   /**
+      Sets latest feature values and stores it in a struct. 
+   **/
    FEATURE.standard_score_value     = STANDARD_SCORE();
    FEATURE.skew_value               = SKEW();
    FEATURE.last_candle_high         = UTIL_CANDLE_HIGH(1);
@@ -797,7 +1255,7 @@ FeatureValues  CRecurveTrade::SetLatestFeatureValues(void) {
 
 // --- LOGGING --- // 
 
-int            CRecurveTrade::logger(string message,string function,bool notify=false,bool debug=true) {
+int            CRecurveTrade::logger(string message,string function,bool notify=false,bool debug=false) {
    if (!InpTerminalMsg && !debug) return -1;
    
    string mode    = debug ? "DEBUGGER" : "LOGGER";
@@ -830,13 +1288,14 @@ int            CRecurveTrade::error(string message) {
 
 
 //+------------------------------------------------------------------+
-//|FEATURES                                                          |
+//| FEATURES                                                         |
 //+------------------------------------------------------------------+
 
-// --- FEATURES --- //
 
 double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift = 1)    { 
-
+   /**
+      Daily Volatility / Standard Deviation on the daily timeframe. 
+   **/
    return iCustom(NULL, 
       PERIOD_D1, 
       indicator_path(FEATURE_CONFIG.SDEV_FILENAME), // path 
@@ -851,6 +1310,9 @@ double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift =
 
 
 double         CRecurveTrade::STANDARD_SCORE(int shift=1) {
+   /**
+      Standard score based on spread of the last close to the mean. 
+   **/
    return iCustom(NULL,
       InpRPTimeframe, 
       indicator_path(FEATURE_CONFIG.SPREAD_FILENAME),
@@ -864,7 +1326,9 @@ double         CRecurveTrade::STANDARD_SCORE(int shift=1) {
 }
 
 double         CRecurveTrade::SKEW(int shift=1) {
-
+   /**
+      Measures closing skew 
+   **/
    return iCustom(NULL,
       InpRPTimeframe,
       indicator_path(FEATURE_CONFIG.SKEW_FILENAME),
@@ -877,6 +1341,9 @@ double         CRecurveTrade::SKEW(int shift=1) {
 }
 
 double         CRecurveTrade::BBANDS(int mode, int num_sd = 2, int shift =1) {
+   /**
+      Bollinger Bands for measuring volatility, and filtering entries. 
+   **/
    return iBands(NULL,
       InpRPTimeframe,
       FEATURE_CONFIG.BBANDS_LOOKBACK,   // bbands period
@@ -889,7 +1356,9 @@ double         CRecurveTrade::BBANDS(int mode, int num_sd = 2, int shift =1) {
 }
 
 double         CRecurveTrade::BBANDS_SLOW(int mode,int num_sd=2,int shift=1) {
-
+   /**
+      Slow Bands, for cutting losses 
+   **/
    return iBands(NULL, 
       InpRPTimeframe,
       FEATURE_CONFIG.BBANDS_SLOW_LOOKBACK,
@@ -911,5 +1380,7 @@ double         CRecurveTrade::EXTREME_UPPER(void)     { return BBANDS(MODE_UPPER
 double         CRecurveTrade::EXTREME_LOWER(void)     { return BBANDS(MODE_LOWER, 3); }
 double         CRecurveTrade::SLOW_UPPER(void)        { return BBANDS_SLOW(MODE_UPPER, 3); }
 double         CRecurveTrade::SLOW_LOWER(void)        { return BBANDS_SLOW(MODE_LOWER, 3); }
+double         CRecurveTrade::PD_UPPER_BANDS(void)    { return BBANDS(MODE_UPPER, 2, 2); }
+double         CRecurveTrade::PD_LOWER_BANDS(void)    { return BBANDS(MODE_LOWER, 2, 2); }
 
 

@@ -5,14 +5,43 @@
 #include <Controls/Dialog.mqh>
 #include <Controls/Button.mqh>
 #include <Controls/Label.mqh>
+//#include <MAIN/TradeOps.mqh>
+#include "profiles.mqh"
+#include "features.mqh"
+#include "trade_ops.mqh"
+
+#include "pool.mqh"
 // ========== DEFINES ========== // 
 #undef   CONTROLS_FONT_SIZE 
 
 #define  CONTROLS_FONT_SIZE      8 
 
+#define     INDENT_X       10 
+#define     GAP_Y          7
+
+#define     COLUMN_1       10 
+#define     COLUMN_2       120 
+#define     COLUMN_3       230 
+
+#define     ROW_1          10 
+#define     ROW_2          40 
+#define     ROW_3          70 
+
+#define     BUTTON_WIDTH   100 
+#define     BUTTON_HEIGHT  20 
+
+
+#define     SUBPANEL_X        10
+#define     SUBPANEL_Y        130
+#define     SUBPANEL_HEIGHT   210
+#define     SUBPANEL_WIDTH    180
 
 
 // ========== ENUM ========== // 
+enum ENUM_CLOSE_REASON {
+   STACK, INVERT, TAKE_PROFIT, DEADLINE, CUT
+};
+
 
 enum ENUM_DIRECTION {
    LONG, SHORT, INVALID
@@ -29,7 +58,7 @@ enum ENUM_FREQUENCY {
 };
 
 enum ENUM_SIGNAL {
-   TRADE_LONG, TRADE_SHORT, CUT_LONG, CUT_SHORT, SIGNAL_NONE
+   TRADE_LONG, TRADE_SHORT, CUT_LONG, CUT_SHORT, TAKE_PROFIT_LONG, TAKE_PROFIT_SHORT, SIGNAL_NONE
 };
 
 enum ENUM_TRADE_MANAGEMENT {
@@ -87,11 +116,11 @@ struct TradeLayer {
 };
 
 struct ActivePosition {
-
-   datetime    pos_open_datetime, pos_deadline; 
+   datetime    pos_open_datetime; 
    int         pos_ticket;
-   TradeLayer  layer;
-
+   double      pos_open_price, pos_volume, pos_stop_loss, pos_take_profit;
+   long        pos_magic; 
+   
 };
 
 struct TradeQueue {
@@ -125,7 +154,8 @@ struct FeatureValues {
 
 
 struct Configuration {
-   int      trading_days[]; 
+   CPool<int>TRADING_DAYS; 
+   //int      trading_days[]; 
    double   low_volatility_thresh;
    bool     use_pd;
    double   sl; 
@@ -186,20 +216,22 @@ input string                  InpConstraints       = "Override settings.ini"; //
 input bool                    InpIgnoreLowVol      = false; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
+input bool                    InpUseFixedLot       = false; // USE FIXED LOT
 input string                  InpEmpty_3           = ""; 
 
 input string                  InpConfigMain        = "Main Symbol Config"; // ========== SYMBOL CONFIG ========== 
 input bool                    InpUsePrevDay        = false; // USE PREVIOUS DAY H/L AS REFERENCE
 input double                  InpLowVolThresh      = 0.001; // VOLATILITY LOWER LIMIT
 input double                  InpSL                = 0.00500; // SL 
-input string                  InpDaysString        = "0,1,2,3,4";
-
+input string                  InpDaysString        = "0,1,2,3,4"; // DAYS
+input double                  InpFixedLot          = 0.01; // FIXED LOT 
 input string                  InpEmpty_4           = ""; //
 
 
 input string                  InpRiskProfile       = "Risk Profile and Trade Ops"; // ========== RISK PROFILE ==========
 input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
 input int                     InpMagic             = 232323; // MAGIC NUMBER
+input double                  InpMaxLot            = 0.01; // MAX LOT
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========

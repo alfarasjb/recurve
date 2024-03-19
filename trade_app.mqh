@@ -1,25 +1,6 @@
 
 #include "definition.mqh"
 
-#define     INDENT_X       10 
-#define     GAP_Y          7
-
-#define     COLUMN_1       10 
-#define     COLUMN_2       120 
-#define     COLUMN_3       230 
-
-#define     ROW_1          10 
-#define     ROW_2          40 
-#define     ROW_3          70 
-
-#define     BUTTON_WIDTH   100 
-#define     BUTTON_HEIGHT  20 
-
-
-#define     SUBPANEL_X        10
-#define     SUBPANEL_Y        130
-#define     SUBPANEL_HEIGHT   210
-#define     SUBPANEL_WIDTH    180
 
 
 class CDataPanel : public CAppDialog {
