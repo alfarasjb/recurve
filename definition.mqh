@@ -276,20 +276,28 @@ struct Risk {
       - Prevent accidental oversizing. 
    
    InpLotScaleFactor: double
-      - Manual Scale Factor 
+      - Manual Scale Factor
+   
+   InpSecureBuffer: bool
+      - Determines if algo will secure a target amount of gain early into the trading session 
+      - Ideally, from 0000 to 0800 Server Time 
+      
+   InpBufferPercent: double
+      - Target Required to secure buffer. 
+    
       
 //--- POSITION MANAGEMENT ---//
 
-   InpFloatingGain: ENUM_FLOATING_GAIN_MGT***
+   InpFloatingGain: ENUM_FLOATING_GAIN_MGT
       - STACK: Adds to winning positions 
       - SECURE: Closes winning position, and enters on incoming signal 
       - IGNORE: Ignores incoming signal 
    
-   InpFloatingDD: ENUM_FLOATING_DD_MGT***
+   InpFloatingDD: ENUM_FLOATING_DD_MGT
       - CUT_FLOATING_LOSS: Cuts floating loss, and enters on incoming signal 
       - MARTINGALE: Adds another layer to floating loss (Warning: Using martingale can lead to catastrophic loss)
    
-   InpMaxLayers: int***
+   InpMaxLayers: int
       - Maximum simultaneous number of martingale layers or stacks. 
       - Prevents overlayering
       
@@ -313,7 +321,7 @@ input string                  InpConstraints       = "Override settings.ini"; //
 input bool                    InpIgnoreLowVol      = false; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
-input bool                    InpUseFixedRisk      = false; // USE FIXED LOT
+input bool                    InpUseFixedRisk      = false; // USE FIXED RISK
 input string                  InpEmpty_3           = ""; 
 
 input string                  InpConfigMain        = "Main Symbol Config"; // ========== SYMBOL CONFIG ========== 
@@ -330,6 +338,9 @@ input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE
 input int                     InpMagic             = 232323; // MAGIC NUMBER
 input double                  InpMaxLot            = 0.01; // MAX LOT
 input double                  InpLotScaleFactor    = 1; // LOT SIZE SCALE FACTOR
+input bool                    InpSecureBuffer      = false; // SECURE BUFFER
+input double                  InpBufferPercent     = 5; // BUFFER (%)
+input int                     InpBufferDeadline    = 8; // BUFFER DEADLINE (HOUR - Server Time)
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
@@ -337,6 +348,7 @@ input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK; // FLOATING PROFIT M
 input ENUM_FLOATING_DD_MGT    InpFloatingDD        = CUT_FLOATING_LOSS; // FLOATING DD MGT  
 input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT
+input double                  InpBEThreshold       = 1; // BREAKEVEN THRESHOLD (%)
 input string                  InpEmpty_6           = ""; //
 
 input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========
