@@ -104,6 +104,9 @@ class CRecurveTrade : public CTradeOps {
       bool           ValidInvert(ENUM_ORDER_TYPE order); 
       bool           ValidTakeProfit(ENUM_ORDER_TYPE order); 
       
+      //--- POSITION MANAGEMENT
+      bool           ValidFloatingGain(); 
+      
       //-- DATA STRUCTURE
       int               UpdatePositions();   
       int               RepopulateAlgoPositions(CPool<int> *&synthetic); 
@@ -674,16 +677,35 @@ bool        CRecurveTrade::InFloatingLoss(void) {
 bool           CRecurveTrade::ValidStack(ENUM_ORDER_TYPE order) {
    /**
       Determines if closing stacked position is valid. 
+      
+      Trade will close if this returns true
    **/
    bool valid_interval  = ValidInterval();
    if (PosOrderType() != order) return false; 
    //--- Ignores positions at loss and invalid interval 
    //--- Cuts losing positions and repositions
-   if (PosProfit() < 0 && !valid_interval) return false;
+   if (PosProfit() < 0 && !valid_interval) return false; // FLOATING LOSS MGT
    //--- Ignores positions in profit and valid interval 
    //--- Allows adding to winning positions  
-   if (PosProfit() > 0 && valid_interval) return false; 
+   if (PosProfit() > 0 && valid_interval) return false; // FLOATING PROFIT MGT
    return true; 
+}
+
+bool            CRecurveTrade::ValidFloatingGain(void) {
+    if (PosProfit() < 0) return false; 
+    
+    switch(InpFloatingGain) {
+        case STACK_ON_PROFIT:
+            return false; 
+            break;
+        case SECURE_FLOATING_PROFIT:
+            return true; 
+            break;
+        case IGNORE:
+            return false; 
+            break;  
+    }
+    return false;
 }
 
 bool            CRecurveTrade::ValidInvert(ENUM_ORDER_TYPE order) {
@@ -1189,12 +1211,12 @@ double         CRecurveTrade::DAILY_VOLATILITY( int volatility_mode, int shift =
    **/
    return iCustom(NULL, 
       PERIOD_D1, 
-      indicator_path(FEATURE_CONFIG.SDEV_FILENAME), // path 
-      FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW,   // sdev window
-      FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK,   // max window
-      0,    // shift
-      volatility_mode,    // buffer
-      shift     // shift
+      indicator_path(FEATURE_CONFIG.SDEV_FILENAME),      // path 
+      FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW,            // sdev window
+      FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK,     // max window
+      0,                                                 // shift
+      volatility_mode,                                   // buffer
+      shift                                              // shift
       ); 
       
 }

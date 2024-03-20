@@ -42,28 +42,16 @@ enum ENUM_CLOSE_REASON {
    STACK, INVERT, TAKE_PROFIT, DEADLINE, CUT
 };
 
-
 enum ENUM_DIRECTION {
    LONG, SHORT, INVALID
 };
 
-enum ENUM_CONFIG_SOURCE {
-   FILE, INPUT
-};
 
-enum ENUM_FREQUENCY {
-   QUARTER, // QUARTER - 0, 15, 30, 45
-   HALF, // HALF - 0, 30
-   FULL // FULL - 0
-};
 
 enum ENUM_SIGNAL {
    TRADE_LONG, TRADE_SHORT, CUT_LONG, CUT_SHORT, TAKE_PROFIT_LONG, TAKE_PROFIT_SHORT, SIGNAL_NONE
 };
 
-enum ENUM_TRADE_MANAGEMENT {
-   MODE_BREAKEVEN, MODE_TRAILING, MODE_NONE
-};
 
 enum ENUM_POSITION_SIZING {
    MODE_DYNAMIC, MODE_STATIC
@@ -97,6 +85,34 @@ enum ENUM_DAILY_VOLATILITY_MODE {
 enum ENUM_PRESET {
    MODE_AGGRESSIVE, // Aggressive
    MODE_MASTER // Master
+};
+
+enum ENUM_TRADE_MANAGEMENT {
+   MODE_BREAKEVEN, // Breakeven
+   MODE_NONE // None
+};
+
+
+enum ENUM_FLOATING_DD_MGT {
+   CUT_FLOATING_LOSS, // Cut Losses
+   MARTINGALE // Martingale 
+};
+
+enum ENUM_FLOATING_GAIN_MGT {
+   SECURE_FLOATING_PROFIT, // Secure
+   STACK_ON_PROFIT, // Stack
+   IGNORE // Ignore
+};
+
+enum ENUM_CONFIG_SOURCE {
+   FILE, // File
+   INPUT // Input
+};
+
+enum ENUM_FREQUENCY {
+   QUARTER, // QUARTER - 0, 15, 30, 45
+   HALF, // HALF - 0, 30
+   FULL // FULL - 0
 };
 
 // =========== STRUCT ========== // 
@@ -181,27 +197,108 @@ struct Risk {
    bool     valid_day_vol, valid_day_of_week, valid_long, valid_short; 
 } RISK;
 
-/*
-z score threshold = 2.1 
-sl pips = 20 
-entry window = 10-13 
-close time = 20 
-high volatility threshold = 0.012 
-low volatility threshold = 0.001
 
-daily sdev length = 10 
-spread length = 20
+/**
+//--- GLOBAL CONFIG ---// 
+
+   InpUseFrequency: bool   
+      - Determines how trading frequency / intervals are calculated.
+      - Uses inputs if set to true. 
+      - Options: See ENUM_FREQUENCY 
+   
+   InpFrequency: ENUM_FREQUENCY
+      - Frequency Choice
+      
+      
+//--- CONFIG SOURCE ---// 
+
+   InpConfig: ENUM_CONFIG_SOURCE
+      - Determines the source of configuration. 
+      - Uses inputs if set as INPUT. 
+      - Loads from file in common directory if set as FILE. 
+      - Directories are currently hard coded in InitializeConfigurationPaths() 
+   
+   InpPreset: ENUM_PRESET
+      - Options for risk level. 
+      - Choices: Master/Aggressive
+      
+      
+//--- CONSTRAINTS ---// 
+
+   InpIgnoreLowVol: bool
+      - Ignores low volatility restrictions. 
+      
+   InpIgnoreDayOfWeek: bool
+      - Ignore day of week restrictions. 
+      - Allows trading on all days. 
+      
+   InpIgnoreIntervals: bool
+      - Ignore intervals/frequency restrictions. 
+      - Allows trading on all intervals. 
+      
+   InpUseFixedRisk: bool
+      - Uses fixed value for balance for calculating risk per trade. 
 
 
-DAILY_VOLATILITY_WINDOW            = 10;
-DAILY_VOLATILITY_PEAK_LOOKBACK     = 90;
-NORMALIZED_SPREAD_LOOKBACK         = 10; 
-NORMALIZED_SPREAD_MA_LOOKBACK      = 50;
-SKEW_LOOKBACK                      = 20;
-BBANDS_LOOKBACK                    = 14;
-BBANDS_NUM_SDEV                    = 2;
-*/
+//--- SYMBOL CONFIG ---// 
 
+   InpUsePrevDay: bool 
+      - Uses previous day h/l as reference for trading.
+      - Determined by model parameters. 
+
+   InpLowVolThresh: double 
+      - Low volatility threshold
+      - Determined by model parameters
+       
+   InpSL: double 
+      - Recommended Stop Loss in ticks. Used if calculated stop loss is too tight. 
+      - Determined by model parameters
+      
+   InpDaysString: string 
+      - Day of week to allow trading. 
+      - Determined by model parameters 
+      
+   InpFixedRisk: double
+      - Fixed reference balance for calculating lot size. 
+      - Used if InpUseFixedRisk is set to true. 
+
+//--- RISK PROFILE ---//
+
+   InpRPTimeframe: ENUM_TIMEFRAMES
+      - Specific timeframe to run algo. 
+      - Used for validation in case wrong chart timeframe is set. 
+   
+   InpMagic: int
+      - Magic Number 
+   
+   InpMaxLot: double
+      - Maximum allowable lot.
+      - Prevent accidental oversizing. 
+   
+   InpLotScaleFactor: double
+      - Manual Scale Factor 
+      
+//--- POSITION MANAGEMENT ---//
+
+   InpFloatingGain: ENUM_FLOATING_GAIN_MGT***
+      - STACK: Adds to winning positions 
+      - SECURE: Closes winning position, and enters on incoming signal 
+      - IGNORE: Ignores incoming signal 
+   
+   InpFloatingDD: ENUM_FLOATING_DD_MGT***
+      - CUT_FLOATING_LOSS: Cuts floating loss, and enters on incoming signal 
+      - MARTINGALE: Adds another layer to floating loss (Warning: Using martingale can lead to catastrophic loss)
+   
+   InpMaxLayers: int***
+      - Maximum simultaneous number of martingale layers or stacks. 
+      - Prevents overlayering
+      
+   InpTradeMgt: ENUM_TRADE_MANGEMENT***
+      - MODE_BREAKEVEN: Sets breakeven on threshold
+      - MODE_NONE: Nothing 
+
+***NOT YET IMPLEMENTED
+**/
 input string                  InpGlobal            = "Global Configs: Configs not found in .ini file. "; // ========== GLOBAL CONFIG ========== 
 input bool                    InpUseFrequency      = true; // CALCULATE FREQUENCY FROM INPUT OR TIMEFRAME
 input ENUM_FREQUENCY          InpFrequency         = HALF; // FREQUENCY
@@ -235,13 +332,23 @@ input double                  InpMaxLot            = 0.01; // MAX LOT
 input double                  InpLotScaleFactor    = 1; // LOT SIZE SCALE FACTOR
 input string                  InpEmpty_5           = ""; // 
 
+input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
+input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK; // FLOATING PROFIT MGT
+input ENUM_FLOATING_DD_MGT    InpFloatingDD        = CUT_FLOATING_LOSS; // FLOATING DD MGT  
+input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
+input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT
+input string                  InpEmpty_6           = ""; //
+
 input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========
+
 input bool                    InpShowUI            = false; // SHOW UI
 input bool                    InpTradeOnNews       = false; // TRADE ON NEWS
 input Source                  InpNewsSource        = R4F_WEEKLY; // NEWS SOURCE
+
 input bool                    InpTerminalMsg       = true; // TERMINAL LOGGING 
 input bool                    InpPushNotifs        = false; // PUSH NOTIFICATIONS
 input bool                    InpDebugLogging      = true; // DEBUG LOGGING
+
 
 /*
 input ENUM_ORDER_SEND_METHOD  InpRPOrderSendMethod = MODE_PENDING; // RISK PROFILE: ORDER SEND METHOD
@@ -263,7 +370,7 @@ input ENUM_LAYER_MANAGEMENT   InpLayerManagement   = MODE_SECURE; // LAYER MANAG
 
 /*
 input float                   InpAllocation        = 1; // ALLOCATION
-input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT
+
 input float                   InpTrailInterval     = 100; // TRAILING STOP INTERVAL
 input double                  InpCutoff            = 0.85; // EQUITY CUTOFF
 input float                   InpMaxLot            = 1; // MAX LOT
