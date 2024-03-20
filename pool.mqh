@@ -96,3 +96,4 @@ int            CPool::Pop(int index) {
 
 template <typename T> 
 int         CPool::Dequeue(void)    { return Pop(0); }
+

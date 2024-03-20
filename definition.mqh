@@ -344,7 +344,7 @@ input int                     InpBufferDeadline    = 8; // BUFFER DEADLINE (HOUR
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
-input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK; // FLOATING PROFIT MGT
+input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK_ON_PROFIT; // FLOATING PROFIT MGT
 input ENUM_FLOATING_DD_MGT    InpFloatingDD        = CUT_FLOATING_LOSS; // FLOATING DD MGT  
 input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT

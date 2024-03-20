@@ -6,7 +6,21 @@ class CTradeOps {
       string      TRADE_SYMBOL;
       int         TRADE_MAGIC;
    protected:
-      //--- WRAPPERS
+      
+                  
+                  
+                  
+   public: 
+      CTradeOps(); 
+      ~CTradeOps();
+      
+      
+                  void              SYMBOL(string symbol)   { TRADE_SYMBOL = symbol; }
+                  void              MAGIC(int magic)        { TRADE_MAGIC  = magic; }
+                  
+                  string            SYMBOL(void) const      { return TRADE_SYMBOL; }
+                  int               MAGIC(void) const       { return TRADE_MAGIC; }
+                  //--- WRAPPERS
                   
                   double            PosLots(void) const     { return OrderLots(); }
                   string            PosSymbol(void) const   { return OrderSymbol(); }
@@ -24,26 +38,13 @@ class CTradeOps {
                   int               PosHistTotal() const    { return OrdersHistoryTotal(); }
                   string            PosComment() const      { return OrderComment(); }
                   
-                  
-                  
-                  
-   public: 
-      CTradeOps(); 
-      ~CTradeOps();
-      
-      
-                  void              SYMBOL(string symbol)   { TRADE_SYMBOL = symbol; }
-                  void              MAGIC(int magic)        { TRADE_MAGIC  = magic; }
-                  
-                  string            SYMBOL(void) const      { return TRADE_SYMBOL; }
-                  int               MAGIC(void) const       { return TRADE_MAGIC; }
-                  
                   int               PosTotal(void) const    { return OrdersTotal(); }
                   int               PosTicket(void) const   { return OrderTicket(); }
                   
-      virtual     int               OP_OrderSelectByTicket(int ticket) const  { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES); }
-      virtual     int               OP_OrderSelectByIndex(int index) const    { return OrderSelect(index, SELECT_BY_POS, MODE_TRADES); }
-      virtual     int               OP_HistorySelectByIndex(int index) const  { return OrderSelect(index, SELECT_BY_POS, MODE_HISTORY); }
+      virtual     int               OP_OrderSelectByTicket(int ticket) const     { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES); }
+      virtual     int               OP_OrderSelectByIndex(int index) const       { return OrderSelect(index, SELECT_BY_POS, MODE_TRADES); }
+      virtual     int               OP_HistorySelectByIndex(int index) const     { return OrderSelect(index, SELECT_BY_POS, MODE_HISTORY); }
+      virtual     int               OP_HistorySelectByTicket(int ticket) const   { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_HISTORY); }
                   
       //--- TRADE OPERATIONS
       virtual     int      OP_OrdersCloseAll(); 
