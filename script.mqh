@@ -53,7 +53,7 @@ MAIN LOOP
 */
    if (IsNewCandle()) {
       int holidays = calendar_loader.LoadDatesToday(NEUTRAL); // FOR BACKTESTING 
-      if (holidays > 0) PrintFormat("Num Holidays: %i", holidays);
+      //if (holidays > 0) PrintFormat("Num Holidays: %i", holidays);
       if (holidays == 0) recurve_trade.Stage(); 
       //int holidays_r4f = news_events.GetNewsSymbolToday(); // FOR LIVE 
       //PrintFormat("Num Holidays: %i", holidays_r4f); 

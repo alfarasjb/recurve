@@ -100,12 +100,19 @@ class CRecurveTrade : public CTradeOps {
       bool           PreviousDayValid(ENUM_DIRECTION direction);
       string         IntervalsAsString();
       string         DaysAsString();
-      bool           ValidStack(ENUM_ORDER_TYPE order); 
-      bool           ValidInvert(ENUM_ORDER_TYPE order); 
+      bool           ValidStack(); 
+      bool           ValidInvert(); 
       bool           ValidTakeProfit(ENUM_ORDER_TYPE order); 
+      double         CalcBuffer();
+      int            SecureBuffer(); 
+      double         PortfolioRunningPL(); 
+      int            UnwindPositions();
       
       //--- POSITION MANAGEMENT
       bool           ValidFloatingGain(); 
+      bool           ValidFloatingLoss(); 
+      //bool           ValidLayers(); 
+      bool           Breakeven(); 
       
       //-- DATA STRUCTURE
       int               UpdatePositions();   
@@ -570,6 +577,16 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
       //error(error_message);
       return 0;
    }
+   
+   int size = ALGO_POSITIONS.Size(); 
+   //-- Returns if current open positions is equal to max layers 
+   if (size >= InpMaxLayers) {
+      logger(StringFormat("Max Layers Reached. Current Open Positions for %s: %i. Max Layers: %i",
+         Symbol(),
+         size, 
+         InpMaxLayers), __FUNCTION__, false, true); 
+      return 0; 
+   }
 
    
    string   layer_identifier  = PARAMS.layer.layer == LAYER_PRIMARY ? "PRIMARY" : "SECONDARY";
@@ -673,60 +690,90 @@ bool        CRecurveTrade::InFloatingLoss(void) {
    return true; 
 }
 
-
-bool           CRecurveTrade::ValidStack(ENUM_ORDER_TYPE order) {
+bool           CRecurveTrade::ValidStack(void) {
    /**
-      Determines if closing stacked position is valid. 
+      Determines if stacking is valid. 
       
-      Trade will close if this returns true
+      Returns:
+         true - order will not be closed
+         false - order will be closed 
+         
+      Closing Conditions (returns false)
+         1. Secure and in floating profit
+         2. Cut and in floating loss 
    **/
-   bool valid_interval  = ValidInterval();
-   if (PosOrderType() != order) return false; 
-   //--- Ignores positions at loss and invalid interval 
-   //--- Cuts losing positions and repositions
-   if (PosProfit() < 0 && !valid_interval) return false; // FLOATING LOSS MGT
-   //--- Ignores positions in profit and valid interval 
-   //--- Allows adding to winning positions  
-   if (PosProfit() > 0 && valid_interval) return false; // FLOATING PROFIT MGT
+   
+   //--- Determines if selected order is in profit 
+   bool profit = PosProfit() > 0; 
+   bool valid_gain   = ValidFloatingGain();
+   bool valid_loss   = ValidFloatingLoss(); 
+   switch(profit) {
+      case true:
+         //--- Valid Stack on floating gain
+         //--- if true, ignore order
+         //--- if false, close order
+         return valid_gain; 
+         break;
+      case false:
+         //--- Valid Cut on floating loss
+         //--- if false, close order
+         //--- if true, ignore order 
+         return valid_loss; 
+         break;
+   }
    return true; 
 }
 
 bool            CRecurveTrade::ValidFloatingGain(void) {
-    if (PosProfit() < 0) return false; 
     
     switch(InpFloatingGain) {
         case STACK_ON_PROFIT:
-            return false; 
-            break;
-        case SECURE_FLOATING_PROFIT:
+            //--- Ignores existing position
             return true; 
             break;
-        case IGNORE:
+        case SECURE_FLOATING_PROFIT:
+            //--- Closes existing position 
             return false; 
+            break;
+        case IGNORE:
+            return true; 
             break;  
     }
     return false;
 }
 
-bool            CRecurveTrade::ValidInvert(ENUM_ORDER_TYPE order) {
-   /**
-      Determines if closing inverted position is valid.
-   **/
-   bool valid_interval  = ValidInterval();
-   if (PosOrderType() == order) return false;
-   //--- Ignores positions in profit and invalid interval 
-   if (PosProfit() > 0 && !valid_interval) return false;
-   return true; 
+bool           CRecurveTrade::ValidFloatingLoss(void) {
+   
+   switch(InpFloatingDD) {
+      case CUT_FLOATING_LOSS:
+         //--- Closes existing position 
+         return false; 
+         
+      case MARTINGALE:
+         //--- Ignores existing position 
+         return true; 
+   }
+   
+   return false; 
 }
 
-bool           CRecurveTrade::ValidTakeProfit(ENUM_ORDER_TYPE order) {
+bool           CRecurveTrade::Breakeven(void) {
    /**
-      Determines if profit taking is valid. 
+      Sets Breakeven if position floating profit is greater than 
+      or equal to required profit threshold. (Input)
    **/
-   if (PosOrderType() != order) return false; 
-   //--- Ignores positions in loss 
-   if (PosProfit() < 0) return false; 
-   return true; 
+   
+   //--- Calculates minimum gain to set BE. 
+   double balance = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
+   double gain    = balance * (InpBEThreshold / 100); 
+   //--- Returns false if current profit is below required threshold. 
+   if (PosProfit() < gain) return false; 
+   
+   //-- Returns false if already set as BE
+   if (PosSL() == PosOpenPrice()) return false;
+   //--- Modifies SL 
+   bool m = OP_ModifySL(PosOpenPrice()); 
+   return m;
 }
 
 int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
@@ -735,7 +782,6 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
       
       Close logic varies with signal 
    **/
-   
    int num_trades = PosTotal(); 
    
    CPool<int> *trades_to_close = new CPool<int>(); 
@@ -746,31 +792,57 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
       
       ENUM_ORDER_TYPE current_position = CurrentOpenPosition(), order = PosOrderType(); 
       int ticket  = PosTicket(); 
-      bool valid_interval  = ValidInterval();
-      logger(StringFormat("Signal: %s Ticket: %i", EnumToString(reason), ticket), __FUNCTION__, false, true);
+      bool valid_interval  = ValidInterval(), profit = PosProfit() > 0;
+      logger(StringFormat("Signal: %s Ticket: %i", EnumToString(reason), ticket), __FUNCTION__);
       
       bool c=false; 
+      
+      /**
+         Objective: Determine which tickets to close. 
+         Break: Adds to close 
+         Continue: Ignore 
+         
+         1. Compare signal and existing order 
+            - If match, check stack. Else, check invert. 
+         If Valid Stack: ignore 
+         Else: continue 
+      **/
+      if (Breakeven()) logger(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
+      
+      
       switch(reason) {
          case TRADE_LONG:
-            if (!ValidInvert(ORDER_TYPE_BUY)) continue; 
-            if (!ValidStack(ORDER_TYPE_BUY)) continue; 
-            break; 
+            if ((order == ORDER_TYPE_BUY && !ValidStack()) 
+               || (order == ORDER_TYPE_SELL && ValidInterval())) break;
+            continue;
          case TRADE_SHORT:
-            if (!ValidInvert(ORDER_TYPE_SELL)) continue; 
-            if (!ValidStack(ORDER_TYPE_SELL)) continue;
-            break; 
+            if ((order == ORDER_TYPE_SELL && !ValidStack()) 
+               || (order == ORDER_TYPE_BUY && ValidInterval())) break; 
+            continue; 
          case CUT_LONG:
-            if (!ValidStack(ORDER_TYPE_BUY)) continue;
-            break; 
+            //--- Signal matches existing order, and floating loss, cut. 
+            if (order == ORDER_TYPE_BUY 
+               && !ValidFloatingLoss() 
+               && !profit) break; 
+            continue; 
          case CUT_SHORT:
-            if (!ValidStack(ORDER_TYPE_SELL)) continue;
-            break; 
+            if (order == ORDER_TYPE_SELL 
+               && !ValidFloatingLoss() 
+               && !profit) break; 
+            continue;
          case TAKE_PROFIT_LONG:
-            if (!ValidTakeProfit(ORDER_TYPE_BUY)) continue; 
-            break; 
-         case TAKE_PROFIT_SHORT: 
-            if (!ValidTakeProfit(ORDER_TYPE_SELL)) continue;
-            break; 
+            if (order == ORDER_TYPE_BUY 
+               && !ValidFloatingGain() 
+               && profit) break; 
+            continue;
+         case TAKE_PROFIT_SHORT:
+            if (order == ORDER_TYPE_SELL 
+               && !ValidFloatingLoss() 
+               && profit) break; 
+            continue; 
+         case SIGNAL_NONE:
+            delete trades_to_close; 
+            return 0; 
          default: continue; 
       }
       trades_to_close.Append(ticket); 
@@ -795,6 +867,69 @@ int            CRecurveTrade::SendOrder(TradeParams &PARAMS) {
 
 }
 
+double         CRecurveTrade::CalcBuffer(void) {
+   /**
+      Buffer Gain is calculated as a percentage of daily start balance. 
+      Returns USD value. 
+   **/
+   
+   //--- Day Start Balance 
+   double day_start_balance = UTIL_ACCOUNT_BALANCE(); 
+   
+   double buffer = day_start_balance * (InpBufferPercent / 100); 
+   return buffer; 
+}
+
+int            CRecurveTrade::SecureBuffer(void) { 
+   /**
+      Closes all positions if current p/l exceeds minimum buffer threshold.
+      
+      Only works on live testing.
+   **/
+   
+   int current_hour = TimeHour(TimeCurrent()); 
+   if (current_hour > InpBufferDeadline) {
+      logger(StringFormat("Reached Buffer Deadline. Current: %i, Deadline: %i", current_hour, InpBufferDeadline), __FUNCTION__); 
+      return 0; 
+   }
+   
+   double buffer     = CalcBuffer();
+   double running_pl = PortfolioRunningPL();
+   
+   if (running_pl < buffer) {
+      logger(StringFormat("Secure Invalid. Running PL is below minimum threshold. Buffer: %f, Running PL: %f", 
+         buffer, 
+         running_pl), __FUNCTION__); 
+      return 0;
+   }
+   
+   logger(StringFormat("Securing Open PL. Buffer: %f, Running PL: %f", 
+      buffer, 
+      running_pl), __FUNCTION__); 
+   int extracted[]; 
+   int num_extracted = ALGO_POSITIONS.Extract(extracted);
+   
+   int c = OP_OrdersCloseBatch(extracted); 
+   if (c == 0) logger(StringFormat("Positions Closed: %i", 
+      num_extracted), __FUNCTION__);
+   ALGO_POSITIONS.Clear(); 
+   UpdatePositions(); 
+   return num_extracted; 
+   
+}
+
+
+double         CRecurveTrade::PortfolioRunningPL(void) {
+   int num_pos = PosTotal();
+   
+   double running_pl = 0;
+   for (int i = 0; i < num_pos; i++) {
+      int s = OP_OrderSelectByIndex(i);
+      running_pl+=PosProfit(); 
+   }
+   return running_pl; 
+}
+
 //+------------------------------------------------------------------+
 //| DATA STRUCTURE                                                   |
 //+------------------------------------------------------------------+
@@ -816,7 +951,8 @@ int            CRecurveTrade::UpdatePositions(void) {
    
    int open_positions = PosTotal(); 
    if (open_positions == 0) {
-      logger("No Open Positions. Order pool is empty.", __FUNCTION__); 
+      logger("No Open Positions. Order pool is empty.", __FUNCTION__);
+      ALGO_POSITIONS.Clear(); 
       return open_positions; 
    }
    
@@ -975,6 +1111,12 @@ int            CRecurveTrade::Stage() {
    if (!RISK.valid_day_of_week) return 0;
    if (!RISK.valid_day_vol)   return 0; 
    
+   //-- Locks in trades in profit early in the trading session. 
+   int secured = SecureBuffer(); 
+   
+   if (secured > 0) logger(StringFormat("Secured %i positions.", secured), __FUNCTION__); 
+   
+   
    //-- Sets latest feature values 
    FeatureValues  LatestFeatureValues     = SetLatestFeatureValues(); 
    
@@ -987,7 +1129,7 @@ int            CRecurveTrade::Stage() {
    LAYER.layer          = LAYER_PRIMARY;
    LAYER.allocation     = 1.0;  
    
-   if (signal != SIGNAL_NONE) {
+   /*if (signal != SIGNAL_NONE) {
       logger(StringFormat("Signal: %s", EnumToString(signal)), __FUNCTION__);
       PrintFormat("Skew: %f Spread: %f Daily Vol: %f Day Peak :%f", 
       FEATURE.skew_value, 
@@ -998,20 +1140,16 @@ int            CRecurveTrade::Stage() {
       
       //--- Close Positions (Stack/Invert/Take Profit/Cut)
       //ClosePositions(signal); 
-   }
-   
+   }*/
+   ClosePositions(signal); 
    switch(signal) {
-      case SIGNAL_NONE:    break; 
       case TRADE_LONG: 
          logger("Send Order: Long", __FUNCTION__);      
-         ClosePositions(signal);  
          return SendOrder(ParamsLong(MODE_MARKET, LAYER)); // SEND LONG 
          
       case TRADE_SHORT:       
          logger("Send Order: Short", __FUNCTION__);
-         ClosePositions(signal);
          return SendOrder(ParamsShort(MODE_MARKET, LAYER));  // SEND SHORT
-      default:    return ClosePositions(signal);
    }
    return 0;
 }

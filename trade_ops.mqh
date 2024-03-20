@@ -177,7 +177,7 @@ int      CTradeOps::OP_OrdersBreakevenBatch(int &orders[]) {
    }
    int ticket = order_pool.Item(0); 
    int s = OP_OrderSelectByTicket(ticket); 
-   int m = OP_ModifySL(PosSL()); 
+   int m = OP_ModifySL(PosOpenPrice()); 
    int a = order_pool.Dequeue();
    if (a > num_orders) {
       delete order_pool;
@@ -219,5 +219,6 @@ bool     CTradeOps::OrderIsPending(int ticket) {
 int      CTradeOps::OP_ModifySL(double sl) {
    if (sl == PosSL()) return 0; 
    int m = OrderModify(PosTicket(), PosOpenPrice(), sl, PosTP(), 0); 
+   if (!m) PrintFormat("Order Modify Error. Current SL: %f, Target SL: %f", PosSL(), sl); 
    return m; 
 }
