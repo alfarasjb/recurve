@@ -170,7 +170,7 @@ struct FeatureValues {
 
 
 struct Configuration {
-   CPool<int>TRADING_DAYS; 
+   CPoolGeneric<int>TRADING_DAYS; 
    //int      trading_days[]; 
    double   low_volatility_thresh;
    bool     use_pd;
@@ -197,6 +197,15 @@ struct Risk {
    bool     valid_day_vol, valid_day_of_week, valid_long, valid_short; 
 } RISK;
 
+
+struct TradeObj {
+
+   int      ticket, magic;
+   double   open_price, close_price, stop_loss, take_profit, volume, profit; 
+   string   symbol, comment; 
+   datetime open_time, close_time;  
+   ENUM_ORDER_TYPE   order_type;
+};
 
 /**
 //--- GLOBAL CONFIG ---// 
@@ -404,6 +413,7 @@ const string   R4F_DIRECTORY        = "recurve\\r4f_news";
 const string   INDICATOR_DIRECTORY  = "\\b63\\statistics\\";
 const string   CONFIG_DIRECTORY     = "recurve\\config.csv";
 const string   SETTINGS_DIRECTORY   = "recurve\\settings\\";
+const string   REPORTS_DIRECTORY    = "recurve\\reports\\"; 
 //const string   SYMBOLS_DIRECTORY    = "recurve\\symbols\\";
 
 // DAY OF WEEK 0 - Sunday, 1, 2, 3, 4, 5, 6

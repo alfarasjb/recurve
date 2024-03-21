@@ -8,8 +8,6 @@ class CTradeOps {
    protected:
       
                   
-                  
-                  
    public: 
       CTradeOps(); 
       ~CTradeOps();
@@ -121,7 +119,7 @@ int      CTradeOps::OP_OrderOpen(
 
 int      CTradeOps::OP_OrdersCloseAll(void) {
    int open_positions   = PosTotal(); 
-   CPool<int> *tickets_to_close = new CPool<int>(); 
+   CPoolGeneric<int> *tickets_to_close = new CPoolGeneric<int>(); 
    
    for (int i = 0; i < open_positions; i++) {
       int s = OP_OrderSelectByIndex(i); 
@@ -141,7 +139,7 @@ int      CTradeOps::OP_OrdersCloseAll(void) {
 }
 
 int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
-   CPool <int> *order_pool = new CPool<int>(); 
+   CPoolGeneric <int> *order_pool = new CPoolGeneric<int>(); 
    order_pool.Create(orders); 
    int num_orders = order_pool.Size(); 
    
@@ -168,7 +166,7 @@ int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
 }
 
 int      CTradeOps::OP_OrdersBreakevenBatch(int &orders[]) {
-   CPool<int> *order_pool = new CPool<int>(); 
+   CPoolGeneric<int> *order_pool = new CPoolGeneric<int>(); 
    order_pool.Create(orders);
    int num_orders = order_pool.Size();
    

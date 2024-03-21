@@ -16,28 +16,15 @@ class CPool : public CArray {
       
       T           Item(int index)      { return m_data[index]; }
       
-                  int         Create(T &elements[]); 
-      virtual     string      ArrayAsString(); 
-                  void        Clear(); 
+      virtual     int         Create(T &elements[]); 
       virtual     void        Append(T &element); 
       virtual     bool        Search(T &element); 
-                  int         Extract(T &data[]); 
+      virtual     int         Extract(T &data[]); 
+      virtual     string      ArrayAsString(); 
+                  void        Clear(); 
                   int         Pop(int index); 
                   int         Dequeue(); 
 };
-
-template <typename T> 
-string         CPool::ArrayAsString(void) {
-   
-   int size = Size();
-   string array_string  = ""; 
-   for (int i = 0; i < size; i++) {
-      T item   = m_data[i]; 
-      if (i == 0) array_string   = (string)item; 
-      else array_string          = StringConcatenate(array_string, ",", (string)item); 
-   }
-   return array_string; 
-}
 
 template <typename T> 
 void           CPool::Clear(void) {
@@ -53,28 +40,6 @@ void           CPool::Append(T &element) {
    m_data[size]    = element; 
 }
 
-template <typename T>
-bool            CPool::Search(T &element) {
-   int size = Size(); 
-   for (int i = 0; i < size; i++) if (element == m_data[i]) return true; 
-   return false;
-}
-
-template <typename T> 
-int            CPool::Create(T &elements[]) {
-   int size = ArraySize(elements); 
-   ArrayResize(m_data, size); 
-   ArrayCopy(m_data, elements, 0, 0);
-   return Size();
-}
-
-template <typename T> 
-int            CPool::Extract(T &data[]) {
-   int size = Size(); 
-   ArrayResize(data, size);
-   ArrayCopy(data, m_data); 
-   return ArraySize(data); 
-}
 
 template <typename T>
 int            CPool::Pop(int index) {
@@ -94,6 +59,77 @@ int            CPool::Pop(int index) {
    return Size(); 
 }
 
+template <typename T>
+int         CPool::Create(T &elements[]) {
+   int size = ArraySize(elements); 
+   ArrayResize(m_data, size); 
+   for (int i = 0; i < size; i++) m_data[i] = elements[i]; 
+   return ArraySize(m_data); 
+   
+}
+
 template <typename T> 
 int         CPool::Dequeue(void)    { return Pop(0); }
 
+
+
+
+
+template <typename T> 
+class CPoolGeneric : public CPool<T> {
+   private:
+   protected:
+   public: 
+      CPoolGeneric(){};
+      ~CPoolGeneric() {}; 
+      
+      virtual     bool     Search(T &element); 
+      virtual     string   ArrayAsString(); 
+      virtual     int      Create(T &elements[]);
+      virtual     int      Extract(T &data[]); 
+};
+
+template <typename T> 
+bool        CPoolGeneric::Search(T &element) {
+   int size = Size(); 
+   for (int i = 0; i < size; i++) if (element == m_data[i]) return true; 
+   return false;
+}
+
+template <typename T> 
+string         CPoolGeneric::ArrayAsString(void) {
+   
+   int size = Size();
+   string array_string  = ""; 
+   for (int i = 0; i < size; i++) {
+      T item   = m_data[i]; 
+      if (i == 0) array_string   = (string)item; 
+      else array_string          = StringConcatenate(array_string, ",", (string)item); 
+   }
+   return array_string; 
+}
+
+template <typename T> 
+int            CPoolGeneric::Create(T &elements[]) {
+   int size = ArraySize(elements); 
+   ArrayResize(m_data, size); 
+   ArrayCopy(m_data, elements, 0, 0);
+   return Size();
+}
+
+template <typename T> 
+int            CPoolGeneric::Extract(T &data[]) {
+   int size = Size(); 
+   ArrayResize(data, size);
+   ArrayCopy(data, m_data); 
+   return ArraySize(data); 
+}
+
+
+template <typename T> 
+class CPoolObject : public CPool<T> {
+   public:
+      CPoolObject() {};
+      ~CPoolObject(){}; 
+      
+};
