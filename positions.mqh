@@ -4,7 +4,7 @@
 // --- TEMPORARY
 
 template <typename T>
-class CPositions : public CPool<int>{
+class CPositions : public CPoolGeneric<int>{
    protected:   
    private:
    public:

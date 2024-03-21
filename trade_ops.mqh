@@ -6,7 +6,19 @@ class CTradeOps {
       string      TRADE_SYMBOL;
       int         TRADE_MAGIC;
    protected:
-      //--- WRAPPERS
+      
+                  
+   public: 
+      CTradeOps(); 
+      ~CTradeOps();
+      
+      
+                  void              SYMBOL(string symbol)   { TRADE_SYMBOL = symbol; }
+                  void              MAGIC(int magic)        { TRADE_MAGIC  = magic; }
+                  
+                  string            SYMBOL(void) const      { return TRADE_SYMBOL; }
+                  int               MAGIC(void) const       { return TRADE_MAGIC; }
+                  //--- WRAPPERS
                   
                   double            PosLots(void) const     { return OrderLots(); }
                   string            PosSymbol(void) const   { return OrderSymbol(); }
@@ -24,26 +36,13 @@ class CTradeOps {
                   int               PosHistTotal() const    { return OrdersHistoryTotal(); }
                   string            PosComment() const      { return OrderComment(); }
                   
-                  
-                  
-                  
-   public: 
-      CTradeOps(); 
-      ~CTradeOps();
-      
-      
-                  void              SYMBOL(string symbol)   { TRADE_SYMBOL = symbol; }
-                  void              MAGIC(int magic)        { TRADE_MAGIC  = magic; }
-                  
-                  string            SYMBOL(void) const      { return TRADE_SYMBOL; }
-                  int               MAGIC(void) const       { return TRADE_MAGIC; }
-                  
                   int               PosTotal(void) const    { return OrdersTotal(); }
                   int               PosTicket(void) const   { return OrderTicket(); }
                   
-      virtual     int               OP_OrderSelectByTicket(int ticket) const  { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES); }
-      virtual     int               OP_OrderSelectByIndex(int index) const    { return OrderSelect(index, SELECT_BY_POS, MODE_TRADES); }
-      virtual     int               OP_HistorySelectByIndex(int index) const  { return OrderSelect(index, SELECT_BY_POS, MODE_HISTORY); }
+      virtual     int               OP_OrderSelectByTicket(int ticket) const     { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES); }
+      virtual     int               OP_OrderSelectByIndex(int index) const       { return OrderSelect(index, SELECT_BY_POS, MODE_TRADES); }
+      virtual     int               OP_HistorySelectByIndex(int index) const     { return OrderSelect(index, SELECT_BY_POS, MODE_HISTORY); }
+      virtual     int               OP_HistorySelectByTicket(int ticket) const   { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_HISTORY); }
                   
       //--- TRADE OPERATIONS
       virtual     int      OP_OrdersCloseAll(); 
@@ -120,7 +119,7 @@ int      CTradeOps::OP_OrderOpen(
 
 int      CTradeOps::OP_OrdersCloseAll(void) {
    int open_positions   = PosTotal(); 
-   CPool<int> *tickets_to_close = new CPool<int>(); 
+   CPoolGeneric<int> *tickets_to_close = new CPoolGeneric<int>(); 
    
    for (int i = 0; i < open_positions; i++) {
       int s = OP_OrderSelectByIndex(i); 
@@ -140,7 +139,7 @@ int      CTradeOps::OP_OrdersCloseAll(void) {
 }
 
 int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
-   CPool <int> *order_pool = new CPool<int>(); 
+   CPoolGeneric <int> *order_pool = new CPoolGeneric<int>(); 
    order_pool.Create(orders); 
    int num_orders = order_pool.Size(); 
    
@@ -167,7 +166,7 @@ int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
 }
 
 int      CTradeOps::OP_OrdersBreakevenBatch(int &orders[]) {
-   CPool<int> *order_pool = new CPool<int>(); 
+   CPoolGeneric<int> *order_pool = new CPoolGeneric<int>(); 
    order_pool.Create(orders);
    int num_orders = order_pool.Size();
    

@@ -1,5 +1,6 @@
 #include "definition.mqh"
 #include "positions.mqh"
+#include "reports.mqh"
 
 class CRecurveTrade : public CTradeOps {
 
@@ -10,7 +11,7 @@ class CRecurveTrade : public CTradeOps {
       int            digits; 
       
       //-- INTERVALS
-      CPool<int>        INTERVALS;
+      CPoolGeneric<int> INTERVALS;
       CPositions<int>   ALGO_POSITIONS;
       
       
@@ -107,6 +108,7 @@ class CRecurveTrade : public CTradeOps {
       int            SecureBuffer(); 
       double         PortfolioRunningPL(); 
       int            UnwindPositions();
+      CReports       *GenerateReports(); 
       
       //--- POSITION MANAGEMENT
       bool           ValidFloatingGain(); 
@@ -116,7 +118,7 @@ class CRecurveTrade : public CTradeOps {
       
       //-- DATA STRUCTURE
       int               UpdatePositions();   
-      int               RepopulateAlgoPositions(CPool<int> *&synthetic); 
+      int               RepopulateAlgoPositions(CPoolGeneric<int> *&synthetic); 
       ENUM_ORDER_TYPE   CurrentOpenPosition(); 
       
       int            ClosePositions(ENUM_SIGNAL reason); 
@@ -430,7 +432,12 @@ void           CRecurveTrade::GenerateInterval(int &intervals[]) {
 }
 
 
-
+CReports        *CRecurveTrade::GenerateReports(void) {
+   CPool<int> *algo  = dynamic_cast<CPool<int>*>(&ALGO_POSITIONS); 
+   CReports *reports = new CReports(algo); 
+   
+   return reports; 
+}
 
 
 
@@ -650,6 +657,14 @@ int            CRecurveTrade::CloseOrder(void) {
    int num_positions    = PosTotal();
    
    for (int i = 0; i < num_positions; i ++) int c = OP_OrdersCloseAll(); 
+   if (PosTotal() == 0) {
+      CReports *reports = GenerateReports(); 
+      reports.Reason("deadline"); 
+      reports.Export(); 
+      delete reports;
+   }
+    
+   
    UpdatePositions(); 
    return 1;
 
@@ -764,6 +779,7 @@ bool           CRecurveTrade::Breakeven(void) {
    **/
    
    //--- Calculates minimum gain to set BE. 
+   if (InpTradeMgt != MODE_BREAKEVEN) return false; 
    double balance = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
    double gain    = balance * (InpBEThreshold / 100); 
    //--- Returns false if current profit is below required threshold. 
@@ -784,7 +800,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
    **/
    int num_trades = PosTotal(); 
    
-   CPool<int> *trades_to_close = new CPool<int>(); 
+   CPoolGeneric<int> *trades_to_close = new CPoolGeneric<int>(); 
    
    for (int i = 0; i < num_trades; i++) {
       int t = OP_OrderSelectByIndex(i); 
@@ -853,6 +869,12 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
    
    int num_closed = OP_OrdersCloseBatch(extracted); 
    logger(StringFormat("Num Closed: %i", num_closed), __FUNCTION__);
+   if (num_closed == 0 && num_extracted > 0) {
+      CReports *reports = GenerateReports(); 
+      reports.Export(reason); 
+      delete reports; 
+   }
+   
    
    delete trades_to_close; 
    UpdatePositions(); 
@@ -910,8 +932,17 @@ int            CRecurveTrade::SecureBuffer(void) {
    int num_extracted = ALGO_POSITIONS.Extract(extracted);
    
    int c = OP_OrdersCloseBatch(extracted); 
-   if (c == 0) logger(StringFormat("Positions Closed: %i", 
-      num_extracted), __FUNCTION__);
+   if (c == 0 && num_extracted > 0) {
+      logger(StringFormat("Positions Closed: %i", 
+         num_extracted), __FUNCTION__);
+      CReports *reports = GenerateReports(); 
+      reports.Reason("buffer"); 
+      reports.Export(); 
+      delete reports; 
+   }   
+   
+   
+   
    ALGO_POSITIONS.Clear(); 
    UpdatePositions(); 
    return num_extracted; 
@@ -957,7 +988,7 @@ int            CRecurveTrade::UpdatePositions(void) {
    }
    
    //-- Synthetic order pool for comparing contents of ALGO_POSITIONS
-   CPool<int> *synthetic   = new CPool<int>(); 
+   CPoolGeneric<int> *synthetic   = new CPoolGeneric<int>(); 
    
    
    int updated_size = 0;
@@ -1009,7 +1040,7 @@ int            CRecurveTrade::UpdatePositions(void) {
 }
 
 
-int            CRecurveTrade::RepopulateAlgoPositions(CPool<int> *&synth) {
+int            CRecurveTrade::RepopulateAlgoPositions(CPoolGeneric<int> *&synth) {
    
    int extracted[]; 
    int num_extracted = synth.Extract(extracted); 
