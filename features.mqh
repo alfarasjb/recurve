@@ -13,8 +13,9 @@ struct Settings {
    string   indicator_path, skew_filename, spread_filename, sdev_filename;
 } SETTINGS; 
 
+
 struct SymbolConfig {
-   int      trade_days[], trade_use_pd;
+   int      trade_days[], trade_use_pd, trade_secure;
    double   low_volatility_threshold, sl;
 } SYMBOL_CONFIG;
 
@@ -59,7 +60,7 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
    
    
    if (!FileIsExist(FILEPATH(), FILE_COMMON)) {
-      PrintFormat("Configuration file not found at directory: %s", DIRECTORY());
+      PrintFormat("%s: Configuration file not found at directory: %s", __FUNCTION__, DIRECTORY());
       return false; 
    }
    else {
@@ -126,6 +127,7 @@ bool  ParseSymbolConfig(string key, string value) {
    else if (key == "low_vol_threshold")   SYMBOL_CONFIG.low_volatility_threshold = StringToDouble(value);
    else if (key == "use_pd")              SYMBOL_CONFIG.trade_use_pd             = (int)StringToInteger(value);
    else if (key == "sl")                  SYMBOL_CONFIG.sl                       = StringToDouble(value);
+   else if (key == "secure")              SYMBOL_CONFIG.trade_secure             = (int)StringToInteger(value);
    else if (key == "days") {
       string result[];
       int split = StringSplit(value, ',', result);

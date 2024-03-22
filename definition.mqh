@@ -47,7 +47,6 @@ enum ENUM_DIRECTION {
 };
 
 
-
 enum ENUM_SIGNAL {
    TRADE_LONG, TRADE_SHORT, CUT_LONG, CUT_SHORT, TAKE_PROFIT_LONG, TAKE_PROFIT_SHORT, SIGNAL_NONE
 };
@@ -84,7 +83,9 @@ enum ENUM_DAILY_VOLATILITY_MODE {
 
 enum ENUM_PRESET {
    MODE_AGGRESSIVE, // Aggressive
-   MODE_MASTER // Master
+   MODE_AGGRESSIVE_SECONDARY, // Aggressive Secondary
+   MODE_PROP, // Prop 
+   MODE_STANDARD // Standard
 };
 
 enum ENUM_TRADE_MANAGEMENT {
@@ -173,7 +174,7 @@ struct Configuration {
    CPoolGeneric<int>TRADING_DAYS; 
    //int      trading_days[]; 
    double   low_volatility_thresh;
-   bool     use_pd;
+   bool     use_pd, secure;
    double   sl; 
    string   days_string, intervals_string; 
 } CONFIG;
@@ -310,6 +311,10 @@ struct TradeObj {
       - Maximum simultaneous number of martingale layers or stacks. 
       - Prevents overlayering
       
+   InpMaxDayTrades: int
+      - Maximum trades per symbol, per day.
+      - Prevents overtrading. 
+      
    InpTradeMgt: ENUM_TRADE_MANGEMENT***
       - MODE_BREAKEVEN: Sets breakeven on threshold
       - MODE_NONE: Nothing 
@@ -356,6 +361,7 @@ input string                  InpPosMgt            = " Position Management "; //
 input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK_ON_PROFIT; // FLOATING PROFIT MGT
 input ENUM_FLOATING_DD_MGT    InpFloatingDD        = CUT_FLOATING_LOSS; // FLOATING DD MGT  
 input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
+input int                     InpMaxDayTrades      = 3; // MAX TRADES ALLOWED PER DAY PER SYMBOL
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT
 input double                  InpBEThreshold       = 1; // BREAKEVEN THRESHOLD (%)
 input string                  InpEmpty_6           = ""; //
@@ -411,8 +417,9 @@ const string   EA_ID                = "RCRV-030424-1";
 const string   FXFACTORY_DIRECTORY  = "recurve\\ff_news";
 const string   R4F_DIRECTORY        = "recurve\\r4f_news";
 const string   INDICATOR_DIRECTORY  = "\\b63\\statistics\\";
-const string   CONFIG_DIRECTORY     = "recurve\\config.csv";
-const string   SETTINGS_DIRECTORY   = "recurve\\settings\\";
+//const string   CONFIG_DIRECTORY     = "recurve\\config.csv"; // DEPRECATED
+const string   CONFIG_DIRECTORY     = "recurve\\profiles";
+//const string   SETTINGS_DIRECTORY   = "recurve\\settings\\";
 const string   REPORTS_DIRECTORY    = "recurve\\reports\\"; 
 //const string   SYMBOLS_DIRECTORY    = "recurve\\symbols\\";
 

@@ -13,7 +13,6 @@ CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
 CRecurveApp                AppDialog; 
-CAccounts accts; 
 int OnInit() {
    ObjectsDeleteAll(0, -1, -1);
    
@@ -23,9 +22,9 @@ int OnInit() {
    
    if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
    //ShowComments();
-   accts.InitializeAccounts();
-   accts.PLToday(); 
-   Print(accts.Deposit()); 
+   //accts.InitializeAccounts();
+   //accts.PLToday(); 
+   //Print(accts.Deposit()); 
    //accts.Reverse();
    return INIT_SUCCEEDED;
 
