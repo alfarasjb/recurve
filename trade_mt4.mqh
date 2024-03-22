@@ -1,10 +1,14 @@
 #include "definition.mqh"
 #include "positions.mqh"
 #include "reports.mqh"
+#include "accounts.mqh"
 
 class CRecurveTrade : public CTradeOps {
 
    protected:
+   
+      //--- ACCOUNTS
+      CAccounts      *Accounts; 
    
       //-- SYMBOL PROPERTIES 
       double         tick_value, trade_points, contract_size;
@@ -109,12 +113,14 @@ class CRecurveTrade : public CTradeOps {
       double         PortfolioRunningPL(); 
       int            UnwindPositions();
       CReports       *GenerateReports(); 
+      string         PresetKey(); 
       
       //--- POSITION MANAGEMENT
       bool           ValidFloatingGain(); 
       bool           ValidFloatingLoss(); 
       //bool           ValidLayers(); 
       bool           Breakeven(); 
+      bool           ValidTradeToday(); 
       
       //-- DATA STRUCTURE
       int               UpdatePositions();   
@@ -144,6 +150,8 @@ CRecurveTrade::~CRecurveTrade(void) {
    CONFIG.TRADING_DAYS.Clear(); 
    INTERVALS.Clear();
    ALGO_POSITIONS.Clear(); 
+   
+   delete Accounts; 
 }
 
 void           CRecurveTrade::Init(void) {
@@ -158,24 +166,52 @@ void           CRecurveTrade::Init(void) {
    SetLatestFeatureValues(); 
    Stage();
    
+   Accounts    = new CAccounts(); 
+   
+   //--- TEST ACCOUNTS
+   double   deposit  = Accounts.AccountDeposit();
+   double   pl_today = Accounts.AccountPLToday(); 
+   double   start_bal_today   = Accounts.AccountStartBalToday(); 
+   int      symbol_trades_today = Accounts.AccountSymbolTradesToday(); 
+   
+   PrintFormat("Deposit: %f, PL Today: %f, Start Bal Today: %f, Symbol Trades Today: %i", 
+      deposit,
+      pl_today,
+      start_bal_today, 
+      symbol_trades_today); 
+      
+   
+}
+
+string         CRecurveTrade::PresetKey(void) {
+   string preset_as_string = EnumToString(InpPreset); 
+   string result[];
+   
+   int split   = StringSplit(preset_as_string, '_', result); 
+   string target_string = "";
+   for (int i = 1; i < split; i++) {
+      string result_string = result[i];
+      StringToLower(result_string); 
+      if (target_string == "") target_string = result_string; 
+      else target_string = StringConcatenate(target_string, "_", result_string); 
+   }
+   
+   return target_string; 
+   
 }
 
 void           CRecurveTrade::InitializeConfigurationPaths(void) {
    /**
       Sets local path to directory of configuration files in the MetaQuotes 
       common folder, selected based on preset configuration. 
+      
+      UPDATE: 
+      SYMBOLS_PATH: recurve\\profiles\\<PRESET NAME>\\symbols\\
+      SETTINGS_PATH: recurve\\profiles\\<PRESET NAME>\\settings.ini 
    **/
-   
-   
-   switch(InpPreset) {
-      case MODE_AGGRESSIVE:
-         SYMBOLS_PATH   = "recurve\\symbols\\aggressive\\";
-         SETTINGS_PATH  = "settings"; 
-         break;
-      case MODE_MASTER:
-         SYMBOLS_PATH   = "recurve\\symbols\\master\\"; 
-         SETTINGS_PATH  = "settings_master"; 
-   }
+   string   key   = PresetKey(); 
+   SYMBOLS_PATH   = StringFormat("%s\\%s\\symbols\\", CONFIG_DIRECTORY, key); 
+   SETTINGS_PATH  = StringFormat("%s\\%s\\", CONFIG_DIRECTORY, key); 
    logger(StringFormat("Selected Preset: %s Symbols Path: %s, Settings Path: %s",
       EnumToString(InpPreset), 
       SYMBOLS_PATH,
@@ -284,6 +320,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
    CONFIG.low_volatility_thresh  = SYMBOL_CONFIG.low_volatility_threshold; 
    CONFIG.use_pd                 = (bool)SYMBOL_CONFIG.trade_use_pd; 
    CONFIG.sl                     = SYMBOL_CONFIG.sl; 
+   CONFIG.secure                 = (bool)SYMBOL_CONFIG.trade_secure; 
    
    delete feature; 
 }
@@ -304,7 +341,7 @@ void           CRecurveTrade::LoadSettingsFromFile(void) {
       Loads global settings and feature parameters from MetaQuotes common folder. 
    **/
    
-   CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_DIRECTORY, SETTINGS_PATH);
+   CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_PATH, "settings");
    bool load      = feature.LoadFile(Parse); 
    if (!load) {
       logger("Failed to load settings.", __FUNCTION__); 
@@ -636,6 +673,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    */
    
    if (!ALGO_POSITIONS.Search(ticket)) ALGO_POSITIONS.Append(ticket); 
+   Accounts.AddTradeToday(ticket); 
    logger(StringFormat("Order Placed. Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f", 
       ticket,
       EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type), 
@@ -741,6 +779,8 @@ bool           CRecurveTrade::ValidStack(void) {
 
 bool            CRecurveTrade::ValidFloatingGain(void) {
     
+    //--- TODO: IMPLEMENT CONFIG.SECURE
+    
     switch(InpFloatingGain) {
         case STACK_ON_PROFIT:
             //--- Ignores existing position
@@ -790,6 +830,28 @@ bool           CRecurveTrade::Breakeven(void) {
    //--- Modifies SL 
    bool m = OP_ModifySL(PosOpenPrice()); 
    return m;
+}
+
+bool           CRecurveTrade::ValidTradeToday(void) {
+   /**
+      Checks if number of trades opened today has exceeded day trade limit. 
+      
+      Prevents overtrading. 
+      
+      Ex. Limit: 3 trades per day
+          If Num Trades Opened > Limit, returns false, and prevents opening any more trades. 
+          
+          Returns true if positions today is below maximum limit. 
+   **/
+   int num_trades_today    = Accounts.AccountSymbolTradesToday(); 
+   
+   if (num_trades_today >= InpMaxDayTrades) {
+      logger(StringFormat("Daily Trade Limit is reached. Trades Opened Today: %i Limit: %i", 
+         num_trades_today, 
+         InpMaxDayTrades), __FUNCTION__); 
+      return false; 
+   }   
+   return true; 
 }
 
 int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
@@ -1160,18 +1222,6 @@ int            CRecurveTrade::Stage() {
    LAYER.layer          = LAYER_PRIMARY;
    LAYER.allocation     = 1.0;  
    
-   /*if (signal != SIGNAL_NONE) {
-      logger(StringFormat("Signal: %s", EnumToString(signal)), __FUNCTION__);
-      PrintFormat("Skew: %f Spread: %f Daily Vol: %f Day Peak :%f", 
-      FEATURE.skew_value, 
-      FEATURE.standard_score_value,
-      DAY_VOL(),
-      DAY_PEAK_VOL()
-      );
-      
-      //--- Close Positions (Stack/Invert/Take Profit/Cut)
-      //ClosePositions(signal); 
-   }*/
    ClosePositions(signal); 
    switch(signal) {
       case TRADE_LONG: 
@@ -1182,6 +1232,8 @@ int            CRecurveTrade::Stage() {
          logger("Send Order: Short", __FUNCTION__);
          return SendOrder(ParamsShort(MODE_MARKET, LAYER));  // SEND SHORT
    }
+   int num_trades_today = Accounts.TradesToday();
+   logger(StringFormat("Updated Trades Today: %i", num_trades_today), __FUNCTION__); 
    return 0;
 }
 
@@ -1363,7 +1415,7 @@ bool           CRecurveTrade::notification(string message) {
 
 int            CRecurveTrade::error(string message) {
    
-   Alert(message);
+   //Alert(message);
    return 1;
 }
 
