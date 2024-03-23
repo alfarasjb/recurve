@@ -1,5 +1,7 @@
 
-
+/**
+   WORK IN PROGRESS 
+**/
 
 #include "definition.mqh"
 #include "trade_ops.mqh" 
@@ -77,8 +79,24 @@ class CAccounts : public CTradeOps {
    
    protected:
       CHistoryObject       *contents[], *m_first, *m_last, *today[]; 
-      CPoolGeneric<int>    tickets, trades_today; 
-      double               m_pl_today, m_deposit, m_start_bal_today; 
+      CPoolGeneric<int>    tickets, trades_today;
+      
+      //--- Tracks Global Positions
+      CPoolGeneric<int>    tickets_active, tickets_closed;
+      
+      //--- Tracks instrument specific positions
+      //--- Tracks currently open positions in order pool (not history)
+      //--- Append to this everytime send market order is successful
+      CPoolGeneric<int>    opened_positions;
+      
+      
+      //--- Static All Time
+      double               m_deposit; 
+      //--- Static Intraday
+      double               m_start_bal_today; 
+      
+      //--- Dynamic Intraday
+      double               m_pl_today, m_gain_today; 
       int                  m_symbol_trades_today; 
       
    public:
@@ -99,6 +117,7 @@ class CAccounts : public CTradeOps {
       ~CAccounts(); 
       
       //--- Initialize
+      void        Init(); 
       void        InitializeAccounts(); 
       
       //--- Linked List Methods
@@ -107,47 +126,99 @@ class CAccounts : public CTradeOps {
       
       //--- Main Operations
       void        ClearContents(); 
+      void        ClearToday(); 
+      void        ClearHistoryNodes(CHistoryObject *&objects[]);  
       int         Today(); 
       double      PLToday();
       double      StartBalToday(); 
+      double      GainToday(); 
       double      Deposit();  
       int         TradesToday(); 
       bool        AddTradeToday(int ticket); 
       
+      //--- TRADES TODAY
+      bool        AddOpenedPositionToday(int ticket); 
+      int         SymbolsHistoryToday(); 
+      
       //--- Generic
       template <typename T>   int   Store(T &data, T &dst[]);
+      template <typename T>   int   AddClosedPositions(T &data[]); 
       
       //--- Utility
       int         Diff(datetime target); 
       datetime    GetDate(datetime target); 
+      bool        IsAscending(); 
+      bool        IsNewDay(); 
+      void        SetAsAscending(); 
       
+      
+      //--- New 
+      int         Update(); 
+      int         Track(); 
 };
 
 
 CAccounts::CAccounts(void) {
-   m_deposit               = Deposit(); 
-   InitializeAccounts(); 
-   m_pl_today              = PLToday();
-   m_start_bal_today       = StartBalToday(); 
-   m_symbol_trades_today   = TradesToday();
-   
-      
+  m_deposit               = Deposit();
+  m_start_bal_today       = StartBalToday();
+  InitializeAccounts(); 
+  Init(); 
 }
 
-CAccounts::~CAccounts() { ClearContents(); }
+CAccounts::~CAccounts() { 
+   ClearContents();
+   ClearHistoryNodes(today); 
+}
 
 void     CAccounts::ClearContents(void) {
    //--- Clears Array contents and deletes objects 
+   ClearHistoryNodes(contents); 
+}
+
+void     CAccounts::ClearHistoryNodes(CHistoryObject *&objects[]) {
    
-   for (int i = 0; i < ArraySize(contents); i++) delete contents[i]; 
-   ArrayFree(contents);
-   ArrayResize(contents, 0); 
+   for (int i = 0; i < ArraySize(objects); i++) {
+      CHistoryObject *obj  = objects[i]; 
+      delete obj; 
+   }
+   ArrayFree(objects);
+   ArrayResize(objects, 0); 
+
+}
+
+void     CAccounts::ClearToday(void) {
+   m_symbol_trades_today = 0;
+   m_pl_today = 0; 
+   m_start_bal_today = UTIL_ACCOUNT_BALANCE(); 
+   ClearHistoryNodes(today);
+   ClearHistoryNodes(contents);
+   opened_positions.Clear(); 
+   InitializeAccounts(); 
+}
+
+void     CAccounts::Init(void) {
+   //--- TEMPORARY
+    
+   
+   m_pl_today              = PLToday();
+   m_symbol_trades_today   = TradesToday();
+   m_gain_today            = GainToday();    
+}
+
+double   CAccounts::GainToday(void) {
+   m_gain_today   = 0; 
+   if (m_start_bal_today == NULL) m_start_bal_today = StartBalToday(); 
+   if (m_pl_today == NULL) m_pl_today = PLToday(); 
+   
+   m_gain_today = (m_pl_today / m_start_bal_today) * 100; 
+   return m_gain_today; 
 }
 
 double   CAccounts::Deposit(void) {
    /**
       Gets account deposit. 
    **/
+   if (IsTesting()) return 100000; 
    int num_hist = PosHistTotal(); 
    
    int s = OP_HistorySelectByIndex(0); 
@@ -168,6 +239,8 @@ void     CAccounts::InitializeAccounts(void) {
    //--- TEMPORARY SOLUTION 
    //--- Populates Tickets 
    //--- Assumes that Account History is sorted according to Time. 
+   //--- Recalculate On End Of Day 
+   
    int num_hist = PosHistTotal(); 
    double deposit = m_deposit == 0 ? Deposit() : m_deposit; 
    for (int j = 0; j < num_hist; j++) {
@@ -193,7 +266,7 @@ void     CAccounts::InitializeAccounts(void) {
          hist.Prev(contents[i-1]);  
       }
       //--- Identifies last element in linked list and sets next as NULL
-      if (i == size - 1) {
+      if (i == size - 1 && i != 0) {
          m_last = hist; 
          hist.Next(NULL);
          hist.Prev(contents[i-1]); 
@@ -201,13 +274,99 @@ void     CAccounts::InitializeAccounts(void) {
       
    }
    
-   
    int num_contents  = ArraySize(contents);
    PrintFormat("%s: Contents Created. Num History: %i, Num Stored: %i", __FUNCTION__, num_hist, num_contents); 
 }
 
+void     CAccounts::SetAsAscending(void) {
+   if (m_first == NULL || m_last == NULL) return; 
+   
+   //--- Checks if linked list is sorted from earliest to latest. 
+   //--- Reverses if otherwise
+   if (m_first.trade.open_time > m_last.trade.open_time) Reverse();
+   
+}
+
+int      CAccounts::Update(void) {
+   //--- Use tickets_closed to append to linked list
+   //--- Set As Ascending First 
+   
+   SetAsAscending(); 
+   
+   CHistoryObject *reference = m_last; 
+   int size = tickets_closed.Size(); 
+   for (int i = 0; i < size; i++) {
+      int ticket = tickets_closed.Item(i); 
+      CHistoryObject *hist = new CHistoryObject(ticket); 
+      
+      Store(hist, contents); 
+      
+      
+      if (i >= 0 && i < (size - 1)) {
+          reference.Next(hist); 
+          hist.Prev(reference); 
+      }
+      if (i == size - 1 && i != 0) {
+         reference.Next(NULL);
+         hist.Prev(reference); 
+      }
+      reference = hist; 
+   }
+   
+   return 0; 
+}
+
+int      CAccounts::Track(void) {
+   /**
+      Objective: 
+         Identify Tickets to add to linked list. 
+         
+         Needed in order to calculate PL today and other daily statistics
+         
+      Track: 
+         Compare current interval and previous interval 
+   **/
+   //--- Clear Closed 
+   tickets_closed.Clear(); 
+   
+   //--- Current positions in order pool; 
+   int num_open = PosTotal(); 
+   
+   //--- Create pool
+   CPoolGeneric<int> *current = new CPoolGeneric<int>(); 
+   for (int i = 0; i < num_open; i++) {
+      int s = OP_OrderSelectByIndex(i);
+      int ticket = PosTicket();
+      current.Append(ticket); 
+   }
+   
+   //--- Check contents of tickets active.
+   for (int j = 0; j < tickets_active.Size(); j++) {
+      int active = tickets_active.Item(j); 
+      if (!current.Search(active)) tickets_closed.Append(active); 
+   }
+   
+   //--- If active is no longer in order pool, add to closed.
+   //--- Update Linked List for closed positions. Check history first. 
+   Update(); 
+   
+   //--- Update active tickets. 
+   tickets_active.Clear();
+   
+   int extracted[];
+   int num_extracted = current.Extract(extracted);
+   
+   tickets_active.Create(extracted); 
+   
+   int active_size   = tickets_active.Size();
+   delete current; 
+   return active_size; 
+     
+}
+
 
 int      CAccounts::TradesToday(void) {
+   //--- !!! DO NOT USE 
    //--- Calculate number of trades in history and active positions in order pool 
    
    //--- Scan Trades in order pool 
@@ -221,45 +380,156 @@ int      CAccounts::TradesToday(void) {
    datetime date_today  = GetDate(TimeCurrent()); 
    for (int i = 0; i < num_pos; i++) {
       int s = OP_OrderSelectByIndex(i); 
-      
+      int ticket = PosTicket(); 
       //--- Ignore different symbol
       if (PosSymbol() != Symbol())     continue;
       
       //--- Ignore trades from different dates
       if (PosOpenTime() != date_today) continue; 
       
-      int ticket = PosTicket(); 
+      //--- Ignore trades that already exist in the list 
+      if (trades_today.Search(ticket)) continue; 
+      
+      
       trades_today.Append(ticket); 
    }
+   if (trades_today.Size() > 0)
+   PrintFormat("%s: Open Positions: %i", __FUNCTION__, trades_today.Size());
    
    //--- Return if no trades today; 
-   if (ArraySize(today) == 0) return m_symbol_trades_today;
+   if (ArraySize(today) == 0 && trades_today.Size() == 0) return m_symbol_trades_today;
     
    //--- Scan History
    //--- First entry, use Next() to traverse linked list
    CHistoryObject *head    = today[0]; 
    datetime reference      = GetDate(head.trade.open_time); 
    
-   while(date_today == reference) {
+   while(date_today == reference && head != NULL) {
       if (head.trade.symbol == Symbol()) trades_today.Append(head.trade.ticket); 
       head        = head.Next(); 
+      if (head == NULL) break; 
       reference   = GetDate(head.trade.open_time); 
    }
    
-   m_symbol_trades_today   = trades_today.Size();
+   //m_symbol_trades_today   = trades_today.Size();
    return m_symbol_trades_today;
    
 }
 
+
+bool     CAccounts::IsAscending(void) {
+   if (m_last == NULL || m_first == NULL) return true; 
+   if (m_last.trade.open_time > m_first.trade.open_time) return true; 
+   return false; 
+}
+
 bool     CAccounts::AddTradeToday(int ticket) {
    //--- Appends ticket to trades_today. Used for updating trades_today if order is sent from main class. 
+   //--- TODO: Add last trade to linked list.
    
    if (trades_today.Search(ticket)) {
       PrintFormat("%s: Ticket: %i already exists.", __FUNCTION__, ticket); 
       return false; 
    }
    trades_today.Append(ticket); 
+   PrintFormat("Trade Added. Ticket: %i", ticket); 
+   
+   //InitializeAccounts();
    return true; 
+}
+
+bool     CAccounts::AddOpenedPositionToday(int ticket) {
+   //--- Appends to opened positions today 
+   
+   //--- Check Contents 
+   datetime date_today  = GetDate(TimeCurrent()); 
+   int last_index = opened_positions.Size() - 1; 
+   
+   
+   if (opened_positions.Search(ticket)) {
+      return false; 
+   }
+   
+   opened_positions.Append(ticket); 
+   m_symbol_trades_today++; 
+   return true; 
+}
+
+
+bool     CAccounts::IsNewDay(void) {
+   datetime date_today  = GetDate(TimeCurrent()); 
+   
+   int num_today  = ArraySize(today); 
+   if (num_today == 0) return false; //--- Return false, safe to append to today, no need to clear
+   
+   CHistoryObject *last = today[num_today - 1]; 
+   datetime last_stored = GetDate(last.trade.open_time); 
+   if (date_today > last_stored) return true; 
+   
+   return false; 
+}
+
+template <typename T>
+int      CAccounts::AddClosedPositions(T &data[]) {
+   int size = ArraySize(data);
+   
+   //--- Check for new day 
+   int num_today = ArraySize(today); 
+   datetime date_today = GetDate(TimeCurrent()); 
+   if (IsNewDay()) ClearHistoryNodes(today); 
+   
+   //--- Reference node is latest 
+   bool ascending = IsAscending(); 
+   CHistoryObject *reference_node = ascending ? m_last : m_first; 
+   for (int i = 0; i < size; i++) {
+      //--- Search if exists in trades today 
+      //--- Trades today contains tickets of opened positions 
+      
+      int ticket = data[i];
+      
+      //--- Check latest node for similar tickets. 
+      
+      /*
+         Conditions: 
+            1. Date must be later than latest stored in LL. If true, append. If false, scan if already exists. 
+            2. Add to next if ascending, add to prev if descending
+      */
+      
+      int s = OP_HistorySelectByTicket(ticket);      
+      
+      //--- Build and set attrib then store as next if ascending, prev if descending 
+      CHistoryObject *hist = new CHistoryObject(ticket); 
+      
+      if (reference_node == NULL) {
+         reference_node = hist;
+         First(hist); 
+         Last(hist); 
+         Store(hist, today); 
+         continue; 
+      }
+      
+      if (reference_node.trade.open_time > PosOpenTime()) continue; //--- Invalid since PosOpenTime has to be greater than latest stored node
+      
+      
+      
+      switch(ascending) {
+         case true:
+            reference_node.Next(hist); 
+            hist.Next(NULL);
+            hist.Prev(reference_node); 
+            break;
+         case false:
+            reference_node.Prev(hist);
+            hist.Prev(NULL);
+            hist.Next(reference_node); 
+            break;
+      }
+      Last(hist); 
+      reference_node = hist; 
+      Print("STORING: ", hist.trade.ticket);
+      Store(hist, today); 
+   }
+   return ArraySize(today); 
 }
 
 int      CAccounts::Today(void) {
@@ -268,7 +538,8 @@ int      CAccounts::Today(void) {
    
    
    if (m_first == NULL || m_last == NULL) {
-      PrintFormat("%s: Contents are empty.", __FUNCTION__);
+      //InitializeAccounts(); 
+      //PrintFormat("%s: Contents are empty.", __FUNCTION__);
       return 0; 
    }
    
@@ -283,10 +554,11 @@ int      CAccounts::Today(void) {
    datetime target      = GetDate(TimeCurrent()); 
    datetime reference   = GetDate(head.trade.open_time); 
    
-   while (target == reference) {
+   while (target == reference && head != NULL) {
       Store(head, today); 
       
       head        = head.Next(); 
+      if (head == NULL) break; 
       reference   = GetDate(head.trade.open_time); 
    }
    PrintFormat("%s: Trades Today: %i Symbol Trades Today: %i", __FUNCTION__, ArraySize(today), m_symbol_trades_today);
@@ -294,6 +566,7 @@ int      CAccounts::Today(void) {
    
    return ArraySize(today);
 }
+
 
 void CAccounts::Traverse(void) {
 
@@ -324,26 +597,30 @@ void     CAccounts::Reverse(void) {
 }
 
 double   CAccounts::PLToday(void) {
-   
+   m_pl_today        = 0; 
    double pl_today   = 0; 
    int num_today     = ArraySize(today);
    if (num_today == 0) {
-      PrintFormat("%s: Uninitialized Array.", __FUNCTION__);
+      //PrintFormat("%s: Uninitialized Array.", __FUNCTION__);
       if (Today() == 0) {
-         PrintFormat("%s: No Trades Today.", __FUNCTION__);
+         //PrintFormat("%s: No Trades Today.", __FUNCTION__);
          return 0;
       } 
    }
    
    
    CHistoryObject *head = today[0]; 
+   
+   if (head == NULL) return 0; 
+   
    datetime date_today  = GetDate(TimeCurrent()); 
    datetime reference   = GetDate(head.trade.open_time);
    
-   while(date_today == reference) {
+   while(date_today == reference && head != NULL) {
       double profit = head.trade.profit; 
       pl_today+=profit; 
       head = head.Next(); 
+      if (head == NULL) break;
       reference = GetDate(head.trade.open_time); 
    }
    

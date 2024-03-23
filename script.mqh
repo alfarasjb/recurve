@@ -18,6 +18,7 @@ int OnInit() {
    
    recurve_trade.Init(); 
    latest_values_panel.Update(); 
+   accounts_panel.Update(); 
    AppDialog.Init(); 
    
    if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
@@ -62,10 +63,14 @@ MAIN LOOP
       //PrintFormat("Num Holidays: %i", holidays_r4f); 
       
       
-      if (recurve_trade.EndOfDay()) recurve_trade.CloseOrder();
+      if (recurve_trade.EndOfDay()) {
+         recurve_trade.CloseOrder();
+         recurve_trade.OnEndOfDay(); 
+      }
       //ShowComments();
       //FeatureDialog.Update(); 
       latest_values_panel.Update(); 
+      accounts_panel.Update(); 
       if (calendar_loader.IsNewYear()) calendar_loader.LoadCSV(HIGH); 
    }
 }

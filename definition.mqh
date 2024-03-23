@@ -32,7 +32,7 @@
 
 
 #define     SUBPANEL_X        10
-#define     SUBPANEL_Y        130
+#define     SUBPANEL_Y        160
 #define     SUBPANEL_HEIGHT   210
 #define     SUBPANEL_WIDTH    180
 
@@ -96,7 +96,8 @@ enum ENUM_TRADE_MANAGEMENT {
 
 enum ENUM_FLOATING_DD_MGT {
    CUT_FLOATING_LOSS, // Cut Losses
-   MARTINGALE // Martingale 
+   MARTINGALE, // Martingale 
+   IGNORE_LOSS // Ignore
 };
 
 enum ENUM_FLOATING_GAIN_MGT {
@@ -208,6 +209,10 @@ struct TradeObj {
    ENUM_ORDER_TYPE   order_type;
 };
 
+struct AccountHistory {
+   int      symbol_trades_today; 
+   double   pl_today, deposit, start_bal_today, gain_today;
+} ACCOUNT_HIST; 
 /**
 //--- GLOBAL CONFIG ---// 
 

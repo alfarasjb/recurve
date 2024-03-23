@@ -68,7 +68,7 @@ void        CReports::Generate(CPool<int> *&tickets) {
       TradeObjects.Append(trade); 
    }
    delete ops; 
-   PrintFormat("%s: %i Objects Generated.", __FUNCTION__, TradeObjects.Size()); 
+   //PrintFormat("%s: %i Objects Generated.", __FUNCTION__, TradeObjects.Size()); 
 }
 
 int         CReports::Export(ENUM_SIGNAL signal = -1) {

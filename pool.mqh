@@ -87,6 +87,7 @@ class CPoolGeneric : public CPool<T> {
       virtual     string   ArrayAsString(); 
       virtual     int      Create(T &elements[]);
       virtual     int      Extract(T &data[]); 
+      virtual     int      Remove(T element); 
 };
 
 template <typename T> 
@@ -125,6 +126,26 @@ int            CPoolGeneric::Extract(T &data[]) {
    return ArraySize(data); 
 }
 
+template <typename T>
+int            CPoolGeneric::Remove(T element) {
+   /*
+   int size = Size(); 
+   
+   CPoolGeneric<T> dummy = new CPoolGeneric<T>();
+      
+   for (int i = 0; i < size; i++) {
+      T item = Item(i); 
+      if (item == element) continue;
+      dummy.Append(item);    
+   }
+   Clear(); 
+   T extracted[];
+   int num_extracted = Extract(extracted);
+   Create(extracted); 
+   return Size(); */ 
+   return 0; 
+}
+
 
 template <typename T> 
 class CPoolObject : public CPool<T> {
@@ -133,3 +154,4 @@ class CPoolObject : public CPool<T> {
       ~CPoolObject(){}; 
       
 };
+
