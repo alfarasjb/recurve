@@ -37,13 +37,13 @@
 #include "definition.mqh"
 #include "positions.mqh"
 #include "reports.mqh"
-#include "accounts_secondary.mqh"
+//#include "accounts_secondary.mqh"
 class CRecurveTrade : public CTradeOps {
 
    protected:
    
       //--- ACCOUNTS
-      CAccounts      *Accounts_; 
+      //CAccounts      *Accounts_; 
    
       //-- SYMBOL PROPERTIES 
       double         tick_value_, trade_points_, contract_size_;
@@ -187,18 +187,18 @@ class CRecurveTrade : public CTradeOps {
 }; 
 
 
-CRecurveTrade::CRecurveTrade(void) {
+CRecurveTrade::CRecurveTrade() {
 }
 
-CRecurveTrade::~CRecurveTrade(void) {
+CRecurveTrade::~CRecurveTrade() {
    CONFIG.TRADING_DAYS.Clear(); 
    INTERVALS_.Clear();
    ALGO_POSITIONS_.Clear(); 
    
-   delete Accounts_; 
+   //delete Accounts_; 
 }
 
-void           CRecurveTrade::Init(void) {
+void           CRecurveTrade::Init() {
    InitializeConfigurationPaths();
    InitializeAccounts(); 
    InitializeOpenPositions(); 
@@ -212,17 +212,17 @@ void           CRecurveTrade::Init(void) {
    Stage();
 }
 
-void           CRecurveTrade::InitializeAccounts(void) {
-   
+void           CRecurveTrade::InitializeAccounts() {
+   /*
    if (Accounts_ == NULL) Accounts_ = new CAccounts(); 
    Accounts_.Init(); 
    ACCOUNT_HIST.deposit             = Accounts_.AccountDeposit();
    ACCOUNT_HIST.pl_today            = Accounts_.AccountClosedPLToday(); 
    ACCOUNT_HIST.start_bal_today     = Accounts_.AccountStartBalToday();  
-   ACCOUNT_HIST.gain_today          = Accounts_.AccountPctGainToday(); 
+   ACCOUNT_HIST.gain_today          = Accounts_.AccountPctGainToday(); */
 }
 
-void           CRecurveTrade::OnEndOfDay(void) {
+void           CRecurveTrade::OnEndOfDay() {
    /**
       Executes functions on end of day. 
       
@@ -235,9 +235,9 @@ void           CRecurveTrade::OnEndOfDay(void) {
 }
 
 
-void           CRecurveTrade::TrackAccounts(void) {   Accounts_.Track(); }
+//void           CRecurveTrade::TrackAccounts() {   Accounts_.Track(); }
 
-string         CRecurveTrade::PresetKey(void) {
+string         CRecurveTrade::PresetKey() {
    string preset_as_string = EnumToString(InpPreset); 
    string result[];
    
@@ -255,7 +255,7 @@ string         CRecurveTrade::PresetKey(void) {
 }
 
 
-void           CRecurveTrade::InitializeConfigurationPaths(void) {
+void           CRecurveTrade::InitializeConfigurationPaths() {
    /**
       Sets local path to directory of configuration files in the MetaQuotes 
       common folder, selected based on preset configuration. 
@@ -273,7 +273,7 @@ void           CRecurveTrade::InitializeConfigurationPaths(void) {
       SETTINGS_PATH_), __FUNCTION__); 
 }
 
-void           CRecurveTrade::InitializeSymbolProperties(void) {
+void           CRecurveTrade::InitializeSymbolProperties() {
    /**
       Sets symbol properties for trade parameter calculations. 
    **/
@@ -284,7 +284,7 @@ void           CRecurveTrade::InitializeSymbolProperties(void) {
 
 }
 
-void           CRecurveTrade::InitializeOpenPositions(void) {
+void           CRecurveTrade::InitializeOpenPositions() {
    /**
       Initializes current open positions into an array. 
    **/
@@ -342,15 +342,15 @@ string         CRecurveTrade::ArrayAsString(T &data[]) {
    return array_string; 
 }
 
-string         CRecurveTrade::IntervalsAsString(void)       { return INTERVALS_.ArrayAsString(); }
-string         CRecurveTrade::DaysAsString(void)            { return CONFIG.TRADING_DAYS.ArrayAsString(); }
+string         CRecurveTrade::IntervalsAsString()       { return INTERVALS_.ArrayAsString(); }
+string         CRecurveTrade::DaysAsString()            { return CONFIG.TRADING_DAYS.ArrayAsString(); }
 
 
 //+------------------------------------------------------------------+
 //| INITIALIZATION AND CONFIG                                        |
 //+------------------------------------------------------------------+
 
-void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
+void           CRecurveTrade::LoadSymbolConfigFromFile() {
    
    /**
       Loads symbol configuration from MetaQuotes common folder. 
@@ -380,7 +380,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
    delete feature; 
 }
 
-void           CRecurveTrade::LoadSymbolConfigFromInput(void) {
+void           CRecurveTrade::LoadSymbolConfigFromInput() {
    /**
       Loads symbol configuration from EA Inputs. 
    **/
@@ -391,7 +391,7 @@ void           CRecurveTrade::LoadSymbolConfigFromInput(void) {
    CONFIG.sl                     = InpSL; 
 }
 
-void           CRecurveTrade::LoadSettingsFromFile(void) {
+void           CRecurveTrade::LoadSettingsFromFile() {
    /**
       Loads global settings and feature parameters from MetaQuotes common folder. 
    **/
@@ -427,11 +427,11 @@ void           CRecurveTrade::LoadSettingsFromFile(void) {
    
 }
 
-void           CRecurveTrade::InitializeFeatureParameters(void)         { LoadSettingsFromFile(); } 
+void           CRecurveTrade::InitializeFeatureParameters()         { LoadSettingsFromFile(); } 
 
 
 
-void           CRecurveTrade::InitializeConfiguration(void) {
+void           CRecurveTrade::InitializeConfiguration() {
    /**
       Initializes global and symbol configuration based on input. 
       
@@ -467,7 +467,7 @@ void           CRecurveTrade::InitializeConfiguration(void) {
       CONFIG.low_volatility_thresh), __FUNCTION__);
 }
 
-void           CRecurveTrade::InitializeDays(void) {
+void           CRecurveTrade::InitializeDays() {
    
    /**
       Creates trading days array based on input days string. 
@@ -482,7 +482,7 @@ void           CRecurveTrade::InitializeDays(void) {
    logger(StringFormat("%i Trading Days Valid.", size), __FUNCTION__);
 }
 
-void           CRecurveTrade::InitializeIntervals(void) {
+void           CRecurveTrade::InitializeIntervals() {
    
    /**
       Initializes interval based on input. 
@@ -524,7 +524,7 @@ void           CRecurveTrade::GenerateInterval(int &intervals[]) {
 }
 
 
-CReports        *CRecurveTrade::GenerateReports(void) {
+CReports        *CRecurveTrade::GenerateReports() {
    CPool<int> *algo  = dynamic_cast<CPool<int>*>(&ALGO_POSITIONS_); 
    CReports *reports = new CReports(algo); 
    
@@ -538,7 +538,7 @@ CReports        *CRecurveTrade::GenerateReports(void) {
 //+------------------------------------------------------------------+
 
 
-double         CRecurveTrade::CatastrophicLossVAR(void) {
+double         CRecurveTrade::CatastrophicLossVAR() {
    /**
       Calculates Catastrophic VAR in USD
    **/
@@ -547,7 +547,7 @@ double         CRecurveTrade::CatastrophicLossVAR(void) {
    return var; 
 }
 
-double         CRecurveTrade::ValueAtRisk(void) {
+double         CRecurveTrade::ValueAtRisk() {
    /**
       Calculates VAR in USD 
    **/
@@ -752,7 +752,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
 }
 
 
-int            CRecurveTrade::CloseOrder(void) {
+int            CRecurveTrade::CloseOrder() {
    /**
       Close All Orders
    **/
@@ -772,7 +772,7 @@ int            CRecurveTrade::CloseOrder(void) {
 
 }
 
-double         CRecurveTrade::FloatingPL(void) {
+double         CRecurveTrade::FloatingPL() {
    /**
       Calculates Floating PL for EA positions for specific symbol
    **/
@@ -797,7 +797,7 @@ double         CRecurveTrade::FloatingPL(void) {
    return floating_pl; 
 }
 
-bool        CRecurveTrade::InFloatingLoss(void) {
+bool        CRecurveTrade::InFloatingLoss() {
    /*
       Returns true if trades in symbol is in floating loss. 
    **/
@@ -807,7 +807,7 @@ bool        CRecurveTrade::InFloatingLoss(void) {
    return true; 
 }
 
-bool           CRecurveTrade::ValidStack(void) {
+bool           CRecurveTrade::ValidStack() {
    /**
       Determines if stacking is valid. 
       
@@ -841,7 +841,7 @@ bool           CRecurveTrade::ValidStack(void) {
    return true; 
 }
 
-bool            CRecurveTrade::ValidFloatingGain(void) {
+bool            CRecurveTrade::ValidFloatingGain() {
     
     //--- TODO: IMPLEMENT CONFIG.SECURE
     
@@ -861,7 +861,7 @@ bool            CRecurveTrade::ValidFloatingGain(void) {
     return false;
 }
 
-bool           CRecurveTrade::ValidFloatingLoss(void) {
+bool           CRecurveTrade::ValidFloatingLoss() {
    
    switch(InpFloatingDD) {
       case CUT_FLOATING_LOSS:
@@ -879,7 +879,7 @@ bool           CRecurveTrade::ValidFloatingLoss(void) {
    return false; 
 }
 
-bool           CRecurveTrade::Breakeven(void) {
+bool           CRecurveTrade::Breakeven() {
    /**
       Sets Breakeven if position floating profit is greater than 
       or equal to required profit threshold. (Input)
@@ -899,7 +899,7 @@ bool           CRecurveTrade::Breakeven(void) {
    return m;
 }
 
-bool           CRecurveTrade::ValidTradeToday(void) {
+bool           CRecurveTrade::ValidTradeToday() {
    /**
       Checks if number of trades opened today has exceeded day trade limit. 
       
@@ -982,7 +982,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
             continue;
          case TAKE_PROFIT_SHORT:
             if (order == ORDER_TYPE_SELL 
-               && !ValidFloatingLoss() 
+               && !ValidFloatingGain() 
                && profit) break; 
             continue; 
          case SIGNAL_NONE:
@@ -1038,7 +1038,7 @@ int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
 
 }
 
-double         CRecurveTrade::CalcBuffer(void) {
+double         CRecurveTrade::CalcBuffer() {
    /**
       Buffer Gain is calculated as a percentage of daily start balance. 
       Returns USD value. 
@@ -1051,7 +1051,7 @@ double         CRecurveTrade::CalcBuffer(void) {
    return buffer; 
 }
 
-int            CRecurveTrade::SecureBuffer(void) { 
+int            CRecurveTrade::SecureBuffer() { 
    /**
       Closes all positions if current p/l exceeds minimum buffer threshold.
       
@@ -1098,7 +1098,7 @@ int            CRecurveTrade::SecureBuffer(void) {
    
 }
 
-int            CRecurveTrade::Recover(void) {
+int            CRecurveTrade::Recover() {
    /**
       Closes all positions during recovery window if net PL reaches breakeven if current net PL is negative.
       
@@ -1133,7 +1133,7 @@ int            CRecurveTrade::Recover(void) {
 }
 
 
-double         CRecurveTrade::PortfolioRunningPL(void) {
+double         CRecurveTrade::PortfolioRunningPL() {
    /**
       Running Open PL 
    **/
@@ -1152,7 +1152,7 @@ double         CRecurveTrade::PortfolioRunningPL(void) {
 //+------------------------------------------------------------------+
 
 
-int            CRecurveTrade::UpdatePositions(void) {
+int            CRecurveTrade::UpdatePositions() {
    /**
       Objective: Contents of ALGO_POSITIONS must be in order pool and vice versa. 
       Count matching orders in order pool, 
@@ -1238,7 +1238,7 @@ int            CRecurveTrade::RepopulateAlgoPositions(CPoolGeneric<int> *&synth)
 }
 
 
-ENUM_ORDER_TYPE   CRecurveTrade::CurrentOpenPosition(void) {
+ENUM_ORDER_TYPE   CRecurveTrade::CurrentOpenPosition() {
    int size = ALGO_POSITIONS_.Size(); 
    
    for (int i = 0; i < size; i++) {
@@ -1253,7 +1253,7 @@ ENUM_ORDER_TYPE   CRecurveTrade::CurrentOpenPosition(void) {
 //| LOGIC                                                            |
 //+------------------------------------------------------------------+
 
-bool           CRecurveTrade::ValidInterval(void) {
+bool           CRecurveTrade::ValidInterval() {
    
    //-- Intervals are automatically valid if config is overridden. 
    if (InpIgnoreIntervals) return true; 
@@ -1272,7 +1272,7 @@ bool           CRecurveTrade::ValidInterval(void) {
    return false;
 }
 
-bool           CRecurveTrade::EndOfDay(void) {
+bool           CRecurveTrade::EndOfDay() {
    //-- Determines end of trading window 
    int hour = TimeHour(TimeCurrent());
    if (hour >= FEATURE_CONFIG.TRADE_DEADLINE) return true;
@@ -1281,7 +1281,7 @@ bool           CRecurveTrade::EndOfDay(void) {
 }
 
 
-bool           CRecurveTrade::ValidDayVolatility(void) {
+bool           CRecurveTrade::ValidDayVolatility() {
 
    /**
       Returns true if daily volatility is valid based on model parameters. 
@@ -1302,14 +1302,14 @@ bool           CRecurveTrade::ValidDayVolatility(void) {
 
 }
 
-bool           CRecurveTrade::DayOfWeekInTradingDays(void) {
+bool           CRecurveTrade::DayOfWeekInTradingDays() {
    if (InpIgnoreDayOfWeek) return true; 
    int current_day_of_week    = DayOfWeek() - 1; 
    if (CONFIG.TRADING_DAYS.Search(current_day_of_week)) return true; 
    return false; 
 }
 
-bool           CRecurveTrade::ValidDayOfWeek(void) { return DayOfWeekInTradingDays(); }
+bool           CRecurveTrade::ValidDayOfWeek() { return DayOfWeekInTradingDays(); }
 
 
 int            CRecurveTrade::Stage() { 
@@ -1360,7 +1360,7 @@ int            CRecurveTrade::Stage() {
    return 0;
 }
 
-bool           CRecurveTrade::ValidTradeWindow(void) {
+bool           CRecurveTrade::ValidTradeWindow() {
 
    /**
       Checks if entry window is open
@@ -1376,7 +1376,7 @@ bool           CRecurveTrade::ValidTradeWindow(void) {
    
 }
 
-bool           CRecurveTrade::ValidRecoveryWindow(void) {
+bool           CRecurveTrade::ValidRecoveryWindow() {
    /**
       Checks if recovery window is open. 
    **/
@@ -1499,7 +1499,7 @@ ENUM_SIGNAL    CRecurveTrade::TakeProfit(FeatureValues &features) {
 }
 
 
-FeatureValues  CRecurveTrade::SetLatestFeatureValues(void) {
+FeatureValues  CRecurveTrade::SetLatestFeatureValues() {
    
    /**
       Sets latest feature values and stores it in a struct. 
@@ -1643,15 +1643,15 @@ double         CRecurveTrade::BBANDS_SLOW(int mode,int num_sd=2,int shift=1) {
 }
 
 string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", FEATURE_CONFIG.INDICATOR_PATH, indicator_name); }
-double         CRecurveTrade::DAY_VOL(void)           { return DAILY_VOLATILITY(MODE_STD_DEV); }
-double         CRecurveTrade::DAY_PEAK_VOL(void)      { return DAILY_VOLATILITY(MODE_ROLLING_MAX_STD_DEV); }
-double         CRecurveTrade::UPPER_BANDS(void)       { return BBANDS(MODE_UPPER); }
-double         CRecurveTrade::LOWER_BANDS(void)       { return BBANDS(MODE_LOWER); }
-double         CRecurveTrade::EXTREME_UPPER(void)     { return BBANDS(MODE_UPPER, 3); }
-double         CRecurveTrade::EXTREME_LOWER(void)     { return BBANDS(MODE_LOWER, 3); }
-double         CRecurveTrade::SLOW_UPPER(void)        { return BBANDS_SLOW(MODE_UPPER, 3); }
-double         CRecurveTrade::SLOW_LOWER(void)        { return BBANDS_SLOW(MODE_LOWER, 3); }
-double         CRecurveTrade::PD_UPPER_BANDS(void)    { return BBANDS(MODE_UPPER, 2, 2); }
-double         CRecurveTrade::PD_LOWER_BANDS(void)    { return BBANDS(MODE_LOWER, 2, 2); }
+double         CRecurveTrade::DAY_VOL()           { return DAILY_VOLATILITY(MODE_STD_DEV); }
+double         CRecurveTrade::DAY_PEAK_VOL()      { return DAILY_VOLATILITY(MODE_ROLLING_MAX_STD_DEV); }
+double         CRecurveTrade::UPPER_BANDS()       { return BBANDS(MODE_UPPER); }
+double         CRecurveTrade::LOWER_BANDS()       { return BBANDS(MODE_LOWER); }
+double         CRecurveTrade::EXTREME_UPPER()     { return BBANDS(MODE_UPPER, 3); }
+double         CRecurveTrade::EXTREME_LOWER()     { return BBANDS(MODE_LOWER, 3); }
+double         CRecurveTrade::SLOW_UPPER()        { return BBANDS_SLOW(MODE_UPPER, 3); }
+double         CRecurveTrade::SLOW_LOWER()        { return BBANDS_SLOW(MODE_LOWER, 3); }
+double         CRecurveTrade::PD_UPPER_BANDS()    { return BBANDS(MODE_UPPER, 2, 2); }
+double         CRecurveTrade::PD_LOWER_BANDS()    { return BBANDS(MODE_LOWER, 2, 2); }
 
 

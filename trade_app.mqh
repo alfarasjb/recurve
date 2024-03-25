@@ -295,7 +295,7 @@ CRecurveApp::~CRecurveApp(void) {
 }
 
 void        CRecurveApp::Init(void) {
-   Create(0, "Recurve App", 0, 10, 20, 360, 150); 
+   Create(0, "Recurve App", 0, MAIN_PANEL_X1, MAIN_PANEL_Y1, MAIN_PANEL_X2, MAIN_PANEL_Y2); 
    Run(); 
 }
 

@@ -125,7 +125,10 @@ void        CAccounts::ResetAll(void) {
 
 double      CAccounts::Deposit(void) {
    //--- From start
+   if (IsTesting()) return 100;
+   
    int s, hist_total;
+   
    
    s = OP_HistorySelectByIndex(0); 
    if (PosOrderType() == 6) return PosProfit(); 

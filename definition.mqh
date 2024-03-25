@@ -30,9 +30,13 @@
 #define     BUTTON_WIDTH   100 
 #define     BUTTON_HEIGHT  20 
 
+#define     MAIN_PANEL_X1  10 
+#define     MAIN_PANEL_Y1  20
+#define     MAIN_PANEL_X2  360 
+#define     MAIN_PANEL_Y2  150 
 
-#define     SUBPANEL_X        10
-#define     SUBPANEL_Y        160
+#define     SUBPANEL_X        370 
+#define     SUBPANEL_Y        10
 #define     SUBPANEL_HEIGHT   210
 #define     SUBPANEL_WIDTH    180
 
