@@ -6,27 +6,29 @@ struct TradeProfile {
 } TRADE_PROFILE;
 
 class CProfiles {
-   protected:
-   private:
-   public: 
-      int FILE_HANDLE;
-      string FILE_PATH;
-      string SYMBOLS[];
+protected:
+private:
+   int      file_handle_; 
+   string   file_path_;
+   string   symbols_[]; 
+public: 
+   //int FILE_HANDLE;
+   //string FILE_PATH;
+   //string SYMBOLS[];
 
-      CProfiles(string path);
-      ~CProfiles();
-      
-      TradeProfile BuildProfile();
-      int   ClearHandle();
-      int   ClearTradingDays();
-      int   NumTradingDays();
-      int   AddToSymbols(string symbol);
+   CProfiles(string path);
+   ~CProfiles();
+   
+   TradeProfile BuildProfile();
+   int   ClearHandle();
+   int   ClearTradingDays();
+   int   NumTradingDays();
+   int   AddToSymbols(string symbol);
 
 }; 
 
-CProfiles::CProfiles(string path) {
-   FILE_PATH   = path; 
-}
+CProfiles::CProfiles(string path) : 
+   file_path_(path) {}
 
 CProfiles::~CProfiles(void) {
    ClearHandle(); 
@@ -34,12 +36,12 @@ CProfiles::~CProfiles(void) {
 }
 
 int   CProfiles::ClearHandle(void) {
-   FileClose(FILE_HANDLE);
-   FileFlush(FILE_HANDLE);
+   FileClose(file_handle_);
+   FileFlush(file_handle_);
    
    
-   FILE_HANDLE = 0;
-   return FILE_HANDLE;
+   file_handle_ = 0;
+   return file_handle_;
 }
 
 int   CProfiles::ClearTradingDays(void) {
@@ -49,9 +51,9 @@ int   CProfiles::ClearTradingDays(void) {
 }
 
 int   CProfiles::AddToSymbols(string symbol) {
-   int size = ArraySize(SYMBOLS);
-   ArrayResize(SYMBOLS, size+1);
-   SYMBOLS[size] = symbol;
+   int size = ArraySize(symbols_);
+   ArrayResize(symbols_, size+1);
+   symbols_[size] = symbol;
    return 1; 
 }
 
@@ -60,18 +62,18 @@ TradeProfile     CProfiles::BuildProfile(void) {
    ResetLastError();
    ClearHandle(); 
    
-   if (FileIsExist(FILE_PATH, FILE_COMMON)) {
-      PrintFormat("%s File %s found", __FUNCTION__, FILE_PATH);
+   if (FileIsExist(file_path_, FILE_COMMON)) {
+      PrintFormat("%s File %s found", __FUNCTION__, file_path_);
       
-   } else PrintFormat("%s File %s not found.", __FUNCTION__, FILE_PATH);
+   } else PrintFormat("%s File %s not found.", __FUNCTION__, file_path_);
    
-   FILE_HANDLE    = FileOpen(FILE_PATH, FILE_CSV | FILE_READ | FILE_ANSI | FILE_COMMON, "\n");
-   if (FILE_HANDLE == -1) return TRADE_PROFILE; 
+   file_handle_    = FileOpen(file_path_, FILE_CSV | FILE_READ | FILE_ANSI | FILE_COMMON, "\n");
+   if (file_handle_ == -1) return TRADE_PROFILE; 
    
    string      result[];
    
-   while (!FileIsLineEnding(FILE_HANDLE)) {
-      string file_string = FileReadString(FILE_HANDLE);
+   while (!FileIsLineEnding(file_handle_)) {
+      string file_string = FileReadString(file_handle_);
       int split = (int)StringSplit(file_string, ',', result);
       
       if (split < 4) continue; 

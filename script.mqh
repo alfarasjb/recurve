@@ -8,7 +8,7 @@
 #include "forex_factory.mqh"
 #include "features.mqh"
 #include "trade_app.mqh"
-#include "accounts.mqh"
+
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
@@ -73,6 +73,7 @@ MAIN LOOP
       accounts_panel.Update(); 
       if (calendar_loader.IsNewYear()) calendar_loader.LoadCSV(HIGH); 
    }
+   recurve_trade.TrackAccounts(); 
 }
 
 void OnChartEvent(const int id,         // event ID  

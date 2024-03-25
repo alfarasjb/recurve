@@ -22,37 +22,34 @@ struct SymbolConfig {
 typedef  bool (*TParse) (string, string);
 
 class CFeatureLoader {
-   protected:
-   private:
-      string      directory;
-      string      file_name; 
-      string      file_path; 
-      
-   public:
-      CFeatureLoader(string directory_value, string file_name_value);
-      ~CFeatureLoader() {}; 
+protected:
+private:
+   string      directory_, file_name_, file_path_;
    
-      void     DIRECTORY(string value)    { directory = value; }
-      
-      string   DIRECTORY(void)            { return directory; }
-      string   FILENAME(void)             { return file_name; }
-      string   FILEPATH(void)             { return file_path; }
-      
-      bool     LoadFile(TParse parse_func); 
-      void     PrintSettings();
-      
-      
+public:
+   CFeatureLoader(string directory_value, string file_name_value);
+   ~CFeatureLoader() {}; 
+
+   void     DIRECTORY(string value)    { directory_ = value; }
+   
+   string   DIRECTORY(void) const      { return directory_; }
+   string   FILENAME(void)  const      { return file_name_; }
+   string   FILEPATH(void)  const      { return file_path_; }
+   
+   bool     LoadFile(TParse parse_func); 
+   void     PrintSettings();
+   
+   
 };
 
-
-CFeatureLoader::CFeatureLoader(string directory_value, string file_name_value) {
-   // DIRECTORY: recurve\\settings\\
-   DIRECTORY(directory_value); 
-   file_name      = StringFormat("%s.ini", file_name_value); 
-   file_path      = directory+file_name; 
+CFeatureLoader::CFeatureLoader(string directory_value,string file_name_value) :
+   directory_(directory_value),
+   file_name_(StringFormat("%s.ini",file_name_value)),
+   file_path_(directory_+file_name_) {
    
-   PrintFormat("Config File Path: %s", file_path); 
-}
+      PrintFormat("Config File Path: %s", file_path_); 
+   }
+
 
 //bool        CFeatureLoader::ParseData(string key,string value) { return true; }
 

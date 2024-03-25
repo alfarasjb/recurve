@@ -37,33 +37,35 @@
 #include "definition.mqh"
 #include "positions.mqh"
 #include "reports.mqh"
-#include "accounts.mqh"
-
+#include "accounts_secondary.mqh"
 class CRecurveTrade : public CTradeOps {
 
    protected:
    
       //--- ACCOUNTS
-      CAccounts      *Accounts; 
+      CAccounts      *Accounts_; 
    
       //-- SYMBOL PROPERTIES 
-      double         tick_value, trade_points, contract_size;
-      int            digits; 
+      double         tick_value_, trade_points_, contract_size_;
+      int            digits_; 
       
       //-- INTERVALS
-      CPoolGeneric<int> INTERVALS;
-      CPositions<int>   ALGO_POSITIONS;
+      CPoolGeneric<int> INTERVALS_;
+      CPositions<int>   ALGO_POSITIONS_;
       
       
-      string         SYMBOLS_PATH, SETTINGS_PATH; 
+      // Temporary. Counter used to track number of trades opened today. 
+      int            symbol_trades_today_;
+      
+      string         SYMBOLS_PATH_, SETTINGS_PATH_; 
    private:
    public: 
    
       //-- SYMBOL PROPERTIES WRAPPERS 
-      double         TICK_VALUE()         { return tick_value; }
-      double         TRADE_POINTS()       { return trade_points; }
-      double         DIGITS()             { return digits; }
-      double         CONTRACT()           { return contract_size; }
+      double         TICK_VALUE() const   { return tick_value_; }
+      double         TRADE_POINTS() const { return trade_points_; }
+      double         DIGITS() const       { return digits_; }
+      double         CONTRACT() const     { return contract_size_; }
       
    
       //-- CONSTRUCTOR
@@ -81,6 +83,7 @@ class CRecurveTrade : public CTradeOps {
       void           InitializeOpenPositions(); 
       void           InitializeAccounts(); 
       void           OnEndOfDay(); 
+      void           TrackAccounts(); 
       
       //-- CONFIG
       void           LoadSettingsFromFile();
@@ -189,10 +192,10 @@ CRecurveTrade::CRecurveTrade(void) {
 
 CRecurveTrade::~CRecurveTrade(void) {
    CONFIG.TRADING_DAYS.Clear(); 
-   INTERVALS.Clear();
-   ALGO_POSITIONS.Clear(); 
+   INTERVALS_.Clear();
+   ALGO_POSITIONS_.Clear(); 
    
-   delete Accounts; 
+   delete Accounts_; 
 }
 
 void           CRecurveTrade::Init(void) {
@@ -210,13 +213,13 @@ void           CRecurveTrade::Init(void) {
 }
 
 void           CRecurveTrade::InitializeAccounts(void) {
-   if (Accounts == NULL) Accounts = new CAccounts(); 
-   Accounts.Init(); 
-   ACCOUNT_HIST.deposit             = Accounts.AccountDeposit();
-   ACCOUNT_HIST.pl_today            = Accounts.AccountPLToday(); 
-   ACCOUNT_HIST.start_bal_today     = Accounts.AccountStartBalToday();  
-   ACCOUNT_HIST.symbol_trades_today = Accounts.AccountSymbolTradesToday();
-   ACCOUNT_HIST.gain_today          = Accounts.GainToday(); 
+   
+   if (Accounts_ == NULL) Accounts_ = new CAccounts(); 
+   Accounts_.Init(); 
+   ACCOUNT_HIST.deposit             = Accounts_.AccountDeposit();
+   ACCOUNT_HIST.pl_today            = Accounts_.AccountClosedPLToday(); 
+   ACCOUNT_HIST.start_bal_today     = Accounts_.AccountStartBalToday();  
+   ACCOUNT_HIST.gain_today          = Accounts_.AccountPctGainToday(); 
 }
 
 void           CRecurveTrade::OnEndOfDay(void) {
@@ -225,12 +228,14 @@ void           CRecurveTrade::OnEndOfDay(void) {
       
       Resets Account data for the next trading day 
    **/
-   Print("Before: ", Accounts.AccountSymbolTradesToday()); 
    //--- Clear Today
-   Accounts.ClearToday(); 
-   Print("After: ", Accounts.AccountSymbolTradesToday()); 
-   
+   //Accounts_.ClearToday(); 
+   symbol_trades_today_    = 0; 
+   logger(StringFormat("Reset. Symbol Trades Today: %i", symbol_trades_today_), __FUNCTION__);    
 }
+
+
+void           CRecurveTrade::TrackAccounts(void) {   Accounts_.Track(); }
 
 string         CRecurveTrade::PresetKey(void) {
    string preset_as_string = EnumToString(InpPreset); 
@@ -249,6 +254,7 @@ string         CRecurveTrade::PresetKey(void) {
    
 }
 
+
 void           CRecurveTrade::InitializeConfigurationPaths(void) {
    /**
       Sets local path to directory of configuration files in the MetaQuotes 
@@ -259,22 +265,22 @@ void           CRecurveTrade::InitializeConfigurationPaths(void) {
       SETTINGS_PATH: recurve\\profiles\\<PRESET NAME>\\settings.ini 
    **/
    string   key   = PresetKey(); 
-   SYMBOLS_PATH   = StringFormat("%s\\%s\\symbols\\", CONFIG_DIRECTORY, key); 
-   SETTINGS_PATH  = StringFormat("%s\\%s\\", CONFIG_DIRECTORY, key); 
+   SYMBOLS_PATH_  = StringFormat("%s\\%s\\symbols\\", CONFIG_DIRECTORY, key); 
+   SETTINGS_PATH_ = StringFormat("%s\\%s\\", CONFIG_DIRECTORY, key); 
    logger(StringFormat("Selected Preset: %s Symbols Path: %s, Settings Path: %s",
       EnumToString(InpPreset), 
-      SYMBOLS_PATH,
-      SETTINGS_PATH), __FUNCTION__); 
+      SYMBOLS_PATH_,
+      SETTINGS_PATH_), __FUNCTION__); 
 }
 
 void           CRecurveTrade::InitializeSymbolProperties(void) {
    /**
       Sets symbol properties for trade parameter calculations. 
    **/
-   tick_value     = UTIL_TICK_VAL(); 
-   trade_points   = UTIL_TRADE_PTS(); 
-   digits         = UTIL_SYMBOL_DIGITS();
-   contract_size  = UTIL_SYMBOL_CONTRACT_SIZE();
+   tick_value_    = UTIL_TICK_VAL(); 
+   trade_points_  = UTIL_TRADE_PTS(); 
+   digits_        = UTIL_SYMBOL_DIGITS();
+   contract_size_ = UTIL_SYMBOL_CONTRACT_SIZE();
 
 }
 
@@ -282,7 +288,7 @@ void           CRecurveTrade::InitializeOpenPositions(void) {
    /**
       Initializes current open positions into an array. 
    **/
-   int num_open_positions  = ALGO_POSITIONS.Init(); 
+   int num_open_positions  = ALGO_POSITIONS_.Init(); 
    logger(StringFormat("Num Open Positions: %i", num_open_positions), __FUNCTION__); 
 }
 //+------------------------------------------------------------------+
@@ -336,7 +342,7 @@ string         CRecurveTrade::ArrayAsString(T &data[]) {
    return array_string; 
 }
 
-string         CRecurveTrade::IntervalsAsString(void)       { return INTERVALS.ArrayAsString(); }
+string         CRecurveTrade::IntervalsAsString(void)       { return INTERVALS_.ArrayAsString(); }
 string         CRecurveTrade::DaysAsString(void)            { return CONFIG.TRADING_DAYS.ArrayAsString(); }
 
 
@@ -351,7 +357,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile(void) {
    **/   
    
    
-   CFeatureLoader *feature    = new CFeatureLoader(SYMBOLS_PATH, Symbol());
+   CFeatureLoader *feature    = new CFeatureLoader(SYMBOLS_PATH_, Symbol());
    bool loaded = feature.LoadFile(ParseSymbolConfig);
    int num_trading_days = ArraySize(SYMBOL_CONFIG.trade_days);
    
@@ -390,7 +396,7 @@ void           CRecurveTrade::LoadSettingsFromFile(void) {
       Loads global settings and feature parameters from MetaQuotes common folder. 
    **/
    
-   CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_PATH, "settings");
+   CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_PATH_, "settings");
    bool load      = feature.LoadFile(Parse); 
    if (!load) {
       logger("Failed to load settings.", __FUNCTION__); 
@@ -514,12 +520,12 @@ void           CRecurveTrade::GenerateInterval(int &intervals[]) {
    /**
       Copies specified interval into TRADE_INTERVALS array to be used later. 
    **/
-   int itv=INTERVALS.Create(intervals); 
+   int itv=INTERVALS_.Create(intervals); 
 }
 
 
 CReports        *CRecurveTrade::GenerateReports(void) {
-   CPool<int> *algo  = dynamic_cast<CPool<int>*>(&ALGO_POSITIONS); 
+   CPool<int> *algo  = dynamic_cast<CPool<int>*>(&ALGO_POSITIONS_); 
    CReports *reports = new CReports(algo); 
    
    return reports; 
@@ -672,7 +678,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
       return 0;
    }
    
-   int size = ALGO_POSITIONS.Size(); 
+   int size = ALGO_POSITIONS_.Size(); 
    //-- Returns if current open positions is equal to max layers 
    if (size >= InpMaxLayers) {
       logger(StringFormat("Max Layers Reached. Current Open Positions for %s: %i. Max Layers: %i",
@@ -682,9 +688,9 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
       return 0; 
    }
 
-   int num_trades_opened_today   = Accounts.AccountSymbolTradesToday(); 
-   if (num_trades_opened_today >= InpMaxDayTrades) {
-      logger(StringFormat("ORDER SEND FAILED. Daily Trade Limit Reached. Trades: %i", num_trades_opened_today), __FUNCTION__);
+   //int num_trades_opened_today   = Accounts_.AccountSymbolTradesToday(); 
+   if (symbol_trades_today_ >= InpMaxDayTrades) {
+      logger(StringFormat("ORDER SEND FAILED. Daily Trade Limit Reached. Trades: %i", symbol_trades_today_), __FUNCTION__);
       return 0; 
    }
    
@@ -727,15 +733,17 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    //AddOrderToday();
    */
    
-   if (!ALGO_POSITIONS.Search(ticket)) ALGO_POSITIONS.Append(ticket); 
-   //Accounts.AddTradeToday(ticket); 
-   Accounts.AddOpenedPositionToday(ticket); 
-   logger(StringFormat("Order Placed. Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f", 
+   if (!ALGO_POSITIONS_.Search(ticket)) ALGO_POSITIONS_.Append(ticket); 
+   //Accounts_.AddTradeToday(ticket); 
+   //Accounts_.AddOpenedPositionToday(ticket); 
+   symbol_trades_today_++; 
+   logger(StringFormat("Order Placed. Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f, Symbol Trades Today: %i", 
       ticket,
       EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type), 
       PARAMS.volume, 
       PARAMS.entry_price, 
-      PARAMS.sl_price), __FUNCTION__);
+      PARAMS.sl_price,
+      symbol_trades_today_), __FUNCTION__);
    
    // match algo positions with current order pool 
    int update  = UpdatePositions(); 
@@ -902,8 +910,8 @@ bool           CRecurveTrade::ValidTradeToday(void) {
           
           Returns true if positions today is below maximum limit. 
    **/
-   int num_trades_today    = Accounts.AccountSymbolTradesToday(); 
-   
+   //int num_trades_today    = Accounts_.AccountSymbolTradesToday(); 
+   int num_trades_today = symbol_trades_today_; 
    if (num_trades_today >= InpMaxDayTrades) {
       logger(StringFormat("Daily Trade Limit is reached. Trades Opened Today: %i Limit: %i", 
          num_trades_today, 
@@ -998,7 +1006,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
       
       logger(StringFormat("Batch Close. Reason: %s", EnumToString(reason)), __FUNCTION__, false, true); 
       //--- UPDATE ACCOUNTS LINKED LIST HERE
-      //int updated = Accounts.AddClosedPositions(extracted); 
+      //int updated = Accounts_.AddClosedPositions(extracted); 
       //PrintFormat("UPDATE: %i", updated); 
    }
    
@@ -1070,7 +1078,7 @@ int            CRecurveTrade::SecureBuffer(void) {
       buffer, 
       running_pl), __FUNCTION__); 
    int extracted[]; 
-   int num_extracted = ALGO_POSITIONS.Extract(extracted);
+   int num_extracted = ALGO_POSITIONS_.Extract(extracted);
    
    int c = OP_OrdersCloseBatch(extracted); 
    if (c == 0 && num_extracted > 0) {
@@ -1084,7 +1092,7 @@ int            CRecurveTrade::SecureBuffer(void) {
    
    
    
-   ALGO_POSITIONS.Clear(); 
+   ALGO_POSITIONS_.Clear(); 
    UpdatePositions(); 
    return num_extracted; 
    
@@ -1108,7 +1116,7 @@ int            CRecurveTrade::Recover(void) {
       return 0; 
    }
    int extracted[];
-   int num_extracted = ALGO_POSITIONS.Extract(extracted); 
+   int num_extracted = ALGO_POSITIONS_.Extract(extracted); 
    int c = OP_OrdersCloseBatch(extracted); 
    if (c == 0 && num_extracted > 0) {
       logger(StringFormat("PL Recovered. Positions Closed: %i", 
@@ -1118,7 +1126,7 @@ int            CRecurveTrade::Recover(void) {
       reports.Export();
       delete reports;
    }
-   ALGO_POSITIONS.Clear();
+   ALGO_POSITIONS_.Clear();
    UpdatePositions();
    
    return num_extracted;
@@ -1161,7 +1169,7 @@ int            CRecurveTrade::UpdatePositions(void) {
    int open_positions = PosTotal(); 
    if (open_positions == 0) {
       logger("No Open Positions. Order pool is empty.", __FUNCTION__);
-      ALGO_POSITIONS.Clear(); 
+      ALGO_POSITIONS_.Clear(); 
       return open_positions; 
    }
    
@@ -1179,11 +1187,11 @@ int            CRecurveTrade::UpdatePositions(void) {
       synthetic.Append(ticket); 
    }
    
-   int synth_size = synthetic.Size(), algo_size = ALGO_POSITIONS.Size(); 
+   int synth_size = synthetic.Size(), algo_size = ALGO_POSITIONS_.Size(); 
    
    if (synth_size == 0) {
-      ALGO_POSITIONS.Clear();
-      logger(StringFormat("No Open Positions. Algo: %i. Reset Size: %i", algo_size, ALGO_POSITIONS.Size()), __FUNCTION__); 
+      ALGO_POSITIONS_.Clear();
+      logger(StringFormat("No Open Positions. Algo: %i. Reset Size: %i", algo_size, ALGO_POSITIONS_.Size()), __FUNCTION__); 
       delete synthetic; 
       return algo_size; 
    }
@@ -1195,25 +1203,25 @@ int            CRecurveTrade::UpdatePositions(void) {
          
       updated_size   = RepopulateAlgoPositions(synthetic);       
       delete synthetic; 
-      return ALGO_POSITIONS.Size(); 
+      return ALGO_POSITIONS_.Size(); 
    } 
    
    else {
       //-- Match tickets 
       logger("Order pool and Algo Positions length matched. Verifying.", __FUNCTION__); 
       for (int j = 0; j < algo_size; j++) {
-         if (synthetic.Item(j) != ALGO_POSITIONS.Item(j)) {
+         if (synthetic.Item(j) != ALGO_POSITIONS_.Item(j)) {
             //-- If elements are mismatched, algo positions will be repopulated. 
             updated_size = RepopulateAlgoPositions(synthetic);
             delete synthetic;
-            return ALGO_POSITIONS.Size(); 
+            return ALGO_POSITIONS_.Size(); 
          }
       }
    }
    
    logger("Tickets stored in Algo Positions are valid.", __FUNCTION__, false, true); 
    delete synthetic; 
-   return ALGO_POSITIONS.Size(); 
+   return ALGO_POSITIONS_.Size(); 
    
 }
 
@@ -1223,18 +1231,18 @@ int            CRecurveTrade::RepopulateAlgoPositions(CPoolGeneric<int> *&synth)
    int extracted[]; 
    int num_extracted = synth.Extract(extracted); 
    
-   ALGO_POSITIONS.Clear();
-   ALGO_POSITIONS.Create(extracted); 
+   ALGO_POSITIONS_.Clear();
+   ALGO_POSITIONS_.Create(extracted); 
    
-   return ALGO_POSITIONS.Size(); 
+   return ALGO_POSITIONS_.Size(); 
 }
 
 
 ENUM_ORDER_TYPE   CRecurveTrade::CurrentOpenPosition(void) {
-   int size = ALGO_POSITIONS.Size(); 
+   int size = ALGO_POSITIONS_.Size(); 
    
    for (int i = 0; i < size; i++) {
-      int ticket  = ALGO_POSITIONS.Item(i); 
+      int ticket  = ALGO_POSITIONS_.Item(i); 
       int s       = OP_OrderSelectByTicket(ticket);
       return PosOrderType(); 
    }
@@ -1251,7 +1259,7 @@ bool           CRecurveTrade::ValidInterval(void) {
    if (InpIgnoreIntervals) return true; 
    int minute  = TimeMinute(TimeCurrent());
    
-   int size    = INTERVALS.Size(); 
+   int size    = INTERVALS_.Size(); 
    
    //-- Returns true if no intervals are stored. 
    if (size == 0) {
@@ -1260,7 +1268,7 @@ bool           CRecurveTrade::ValidInterval(void) {
    }
    
    //-- Returns true if current minute is in valid intervals.
-   if (INTERVALS.Search(minute)) return true; 
+   if (INTERVALS_.Search(minute)) return true; 
    return false;
 }
 
@@ -1342,12 +1350,12 @@ int            CRecurveTrade::Stage() {
    int r = Recover(); 
    
    //--- Handler for Account updates
-   //Accounts.Init();
-   
+   //Accounts_.Init();
+   ACCOUNT_HIST.symbol_trades_today = symbol_trades_today_; 
    //--- Track Tickets in order pool 
-   if (IsTesting()) Accounts.Track(); 
+   //if (IsTesting()) Accounts_.Track(); 
    
-   //int num_trades_today = Accounts.TradesToday();
+   //int num_trades_today = Accounts_.TradesToday();
    //logger(StringFormat("Updated Trades Today: %i", num_trades_today), __FUNCTION__); 
    return 0;
 }
@@ -1424,14 +1432,14 @@ ENUM_SIGNAL    CRecurveTrade::Signal(FeatureValues &features) {
    if ((features.skew_value > FEATURE_CONFIG.SKEW_THRESHOLD) 
       && (features.standard_score_value > FEATURE_CONFIG.SPREAD_THRESHOLD) 
       && (features.last_candle_high > features.upper_bands)
-      && (last_close > last_open)
+      //&& (last_close > last_open)
       && PreviousDayValid(SHORT)) return TRADE_SHORT;
    
    //-- Long Condition 
    if ((features.skew_value < -FEATURE_CONFIG.SKEW_THRESHOLD) 
       && (features.standard_score_value <- FEATURE_CONFIG.SPREAD_THRESHOLD)
       && (features.last_candle_low < features.lower_bands)
-      && (last_close < last_open)
+      //&& (last_close < last_open)
       && PreviousDayValid(LONG)) return TRADE_LONG;
    
    

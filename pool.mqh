@@ -5,16 +5,16 @@
 template <typename T> 
 class CPool : public CArray {
    protected:
-      T        m_data[]; 
+      T        data_[]; 
    private:
    public:
-      CPool() { ArrayResize(m_data, 0); }
-      CPool(int size)   { ArrayResize(m_data, size); }
-      ~CPool() { Clear(); } 
+      CPool()           { ArrayResize(data_, 0); }
+      CPool(int size)   { ArrayResize(data_, size); }
+      ~CPool()          { Clear(); } 
       
-      int         Size()   { return ArraySize(m_data); } 
+      int         Size() const { return ArraySize(data_); } 
       
-      T           Item(int index)      { return m_data[index]; }
+      T           Item(int index) const { return data_[index]; }
       
       virtual     int         Create(T &elements[]); 
       virtual     void        Append(T &element); 
@@ -28,16 +28,16 @@ class CPool : public CArray {
 
 template <typename T> 
 void           CPool::Clear(void) {
-   ArrayFree(m_data);
-   ArrayResize(m_data, 0); 
-   ZeroMemory(m_data); 
+   ArrayFree(data_);
+   ArrayResize(data_, 0); 
+   ZeroMemory(data_); 
 }
 
 template <typename T> 
 void           CPool::Append(T &element) {
    int size = Size(); 
-   ArrayResize(m_data, size+1); 
-   m_data[size]    = element; 
+   ArrayResize(data_, size+1); 
+   data_[size]    = element; 
 }
 
 
@@ -51,7 +51,7 @@ int            CPool::Pop(int index) {
       
       int dummy_size = ArraySize(dummy);
       ArrayResize(dummy, dummy_size+1); 
-      dummy[dummy_size] = m_data[i]; 
+      dummy[dummy_size] = data_[i]; 
    }
    
    Clear(); 
@@ -62,9 +62,9 @@ int            CPool::Pop(int index) {
 template <typename T>
 int         CPool::Create(T &elements[]) {
    int size = ArraySize(elements); 
-   ArrayResize(m_data, size); 
-   for (int i = 0; i < size; i++) m_data[i] = elements[i]; 
-   return ArraySize(m_data); 
+   ArrayResize(data_, size); 
+   for (int i = 0; i < size; i++) data_[i] = elements[i]; 
+   return ArraySize(data_); 
    
 }
 
@@ -88,12 +88,17 @@ class CPoolGeneric : public CPool<T> {
       virtual     int      Create(T &elements[]);
       virtual     int      Extract(T &data[]); 
       virtual     int      Remove(T element); 
+      virtual     bool     Sort(); 
+      virtual     int      Add(T &data[]); 
+      
+      virtual     T        First(); 
+      virtual     T        Last();
 };
 
 template <typename T> 
 bool        CPoolGeneric::Search(T &element) {
    int size = Size(); 
-   for (int i = 0; i < size; i++) if (element == m_data[i]) return true; 
+   for (int i = 0; i < size; i++) if (element == data_[i]) return true; 
    return false;
 }
 
@@ -103,9 +108,9 @@ string         CPoolGeneric::ArrayAsString(void) {
    int size = Size();
    string array_string  = ""; 
    for (int i = 0; i < size; i++) {
-      T item   = m_data[i]; 
+      T item   = data_[i]; 
       if (i == 0) array_string   = (string)item; 
-      else array_string          = StringConcatenate(array_string, ",", (string)item); 
+      else array_string          = StringConcatenate(array_string, ", ", (string)item); 
    }
    return array_string; 
 }
@@ -113,8 +118,8 @@ string         CPoolGeneric::ArrayAsString(void) {
 template <typename T> 
 int            CPoolGeneric::Create(T &elements[]) {
    int size = ArraySize(elements); 
-   ArrayResize(m_data, size); 
-   ArrayCopy(m_data, elements, 0, 0);
+   ArrayResize(data_, size); 
+   ArrayCopy(data_, elements, 0, 0);
    return Size();
 }
 
@@ -122,16 +127,22 @@ template <typename T>
 int            CPoolGeneric::Extract(T &data[]) {
    int size = Size(); 
    ArrayResize(data, size);
-   ArrayCopy(data, m_data); 
+   ArrayCopy(data, data_); 
+   return ArraySize(data); 
+}
+
+template <typename T>
+int            CPoolGeneric::Add(T &data[]) {
+   for (int i = 0; i < ArraySize(data); i++) Append(data[i]);
    return ArraySize(data); 
 }
 
 template <typename T>
 int            CPoolGeneric::Remove(T element) {
-   /*
+   
    int size = Size(); 
    
-   CPoolGeneric<T> dummy = new CPoolGeneric<T>();
+   CPoolGeneric<T> *dummy = new CPoolGeneric<T>();
       
    for (int i = 0; i < size; i++) {
       T item = Item(i); 
@@ -140,13 +151,33 @@ int            CPoolGeneric::Remove(T element) {
    }
    Clear(); 
    T extracted[];
-   int num_extracted = Extract(extracted);
+   int num_extracted = dummy.Extract(extracted);
    Create(extracted); 
-   return Size(); */ 
-   return 0; 
+   delete dummy;
+   return Size(); 
 }
 
+template <typename T>
+bool           CPoolGeneric::Sort(void) {
+   if (Size() == 0) return false;
+   return ArraySort(data_); 
+}
 
+template <typename T> 
+T              CPoolGeneric::First(void) {
+   Sort();
+   return Item(0); 
+}
+
+template <typename T>
+T              CPoolGeneric::Last(void) {
+   Sort();
+   if (Size() == 0) return NULL; 
+   int last = Size() - 1; 
+   return Item(last); 
+}
+
+// ===== POOL OBJECT 
 template <typename T> 
 class CPoolObject : public CPool<T> {
    public:
