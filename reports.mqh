@@ -4,35 +4,34 @@
 //--- TEMPORARY 
 
 class CReports {
-   private:
-      string   m_reason, m_path; 
-   protected:
-   public:
-      CPoolObject<TradeObj>      TradeObjects;
-      CReports(CPool<int> *&tickets);
-      ~CReports(){};
-      
-      void     Reason(string reason)      { m_reason = reason; }
-      string   Reason(void)   const       { return m_reason; }
-      
-      void     Path(string path)          { m_path = path; }
-      string   Path(void)     const       { return m_path; }
-      
-      void     Generate(CPool<int> *&tickets); 
-      string   CloseReason(ENUM_SIGNAL   signal); 
-      int      Export(ENUM_SIGNAL signal = -1); 
-      bool     FileValid(); 
-      bool     Write(string row); 
-      void     Clear(int handle); 
-      string   Header(); 
-      string   Message(TradeObj &obj); 
-      bool     HeaderExist(); 
+private:
+   string   reason_, path_; 
+   CPoolObject<TradeObj>      TradeObjects_; 
+protected:
+public:
+   CReports(CPool<int> *&tickets);
+   ~CReports(){};
+   
+   void     Reason(string reason)      { reason_ = reason; }
+   string   Reason(void)   const       { return reason_; }
+   
+   void     Path(string path)          { path_ = path; }
+   string   Path(void)     const       { return path_; }
+   
+   void     Generate(CPool<int> *&tickets); 
+   string   CloseReason(ENUM_SIGNAL   signal); 
+   int      Export(ENUM_SIGNAL signal = -1); 
+   bool     FileValid(); 
+   bool     Write(string row); 
+   void     Clear(int handle); 
+   string   Header(); 
+   string   Message(TradeObj &obj); 
+   bool     HeaderExist(); 
 };
 
 CReports::CReports(CPool<int> *&tickets) {
-   string trail = IsTesting() ? "backtest" : "live";
-   m_path = StringConcatenate(REPORTS_DIRECTORY, Symbol(), "_report_", trail, ".csv"); 
-   //PrintFormat("%s: Path: %s", __FUNCTION__, m_path); 
+   const string trail = IsTesting() ? "backtest" : "live";
+   path_ = StringConcatenate(REPORTS_DIRECTORY, Symbol(), "_report_", trail, ".csv"); 
    Generate(tickets); 
 }
 
@@ -65,31 +64,31 @@ void        CReports::Generate(CPool<int> *&tickets) {
       trade.close_time     = ops.PosCloseTime(); 
       trade.order_type     = ops.PosOrderType(); 
       
-      TradeObjects.Append(trade); 
+      TradeObjects_.Append(trade); 
    }
    delete ops; 
-   PrintFormat("%s: %i Objects Generated.", __FUNCTION__, TradeObjects.Size()); 
+   //PrintFormat("%s: %i Objects Generated.", __FUNCTION__, TradeObjects.Size()); 
 }
 
 int         CReports::Export(ENUM_SIGNAL signal = -1) {
-   if (TradeObjects.Size() <= 0) {
+   if (TradeObjects_.Size() <= 0) {
       //Print("Trade Objects is empty. Nothing to export."); 
       return 0; 
    } 
    
-   if (m_reason == NULL && signal == -1) {
+   if (reason_ == NULL && signal == -1) {
       //Print("Error exporting closed trades. No values given for reason/signal."); 
       return 0;
    }
    
-   if (m_reason == NULL) m_reason = CloseReason(signal); 
+   if (reason_ == NULL) reason_ = CloseReason(signal); 
    
-   int size = TradeObjects.Size();
+   int size = TradeObjects_.Size();
    
    if (!FileValid() && !HeaderExist()) Write(Header()); 
    
    for (int i = 0; i < size; i++) {
-      TradeObj trade = TradeObjects.Item(i); 
+      TradeObj trade = TradeObjects_.Item(i); 
       string message = Message(trade); 
       Write(message); 
    }
@@ -127,7 +126,7 @@ string      CReports::Message(TradeObj &obj) {
       (string)obj.close_price, 
       (string)obj.profit,
       (string)obj.magic,
-      m_reason); 
+      reason_); 
       
    return message; 
 }

@@ -189,13 +189,56 @@ bool        CLatestValues::Create(void) {
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
    if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
    if (!RowCreate(ind_spread_lbl, "read_spread", DoubleToString(m_spread, 5), 1)) return false;
-   
    if (!RowCreate(ind_skew_lbl, "read_skew", DoubleToString(m_skew, 5), 2)) return false; 
-   
    if (!RowCreate(ind_day_vol_lbl, "read_day_vol", NormalizeDouble(m_day_vol, 5), 3)) return false; 
    if (!RowCreate(ind_peak_lbl, "read_peak_vol", NormalizeDouble(m_peak_vol, 5), 4)) return false;
    return true; 
 }
+
+class CAccountsPanel : public CDataPanel {
+   private:
+               string   name; 
+               double   m_pl_today, m_deposit, m_start_bal_today, m_gain_today;
+               int      m_symbol_trades_today; 
+               CLabel   acc_pl_lbl, acc_deposit_lbl, acc_start_bal_lbl, acc_symbol_trades_lbl, acc_gain_lbl; 
+   public:
+      CAccountsPanel(); 
+      ~CAccountsPanel() {}
+               
+               string   NAME()   const { return name; }
+      virtual  bool     Create();
+               void     Update(); 
+};
+
+CAccountsPanel::CAccountsPanel(void) {
+   name = "Accounts"; 
+   Update(); 
+}
+
+
+void     CAccountsPanel::Update(void) {
+   m_pl_today              = ACCOUNT_HIST.pl_today;
+   m_deposit               = ACCOUNT_HIST.deposit;
+   m_start_bal_today       = ACCOUNT_HIST.start_bal_today;
+   m_symbol_trades_today   = ACCOUNT_HIST.symbol_trades_today; 
+   m_gain_today            = ACCOUNT_HIST.gain_today;
+}
+
+bool     CAccountsPanel::Create(void) {
+   int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
+   int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH; 
+   
+   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!RowCreate(acc_deposit_lbl, "deposit", DoubleToString(m_deposit, 2), 1)) return false; 
+   if (!RowCreate(acc_start_bal_lbl, "start_bal", DoubleToString(m_start_bal_today, 2), 2)) return false; 
+   if (!RowCreate(acc_symbol_trades_lbl, "trades", m_symbol_trades_today, 3)) return false; 
+   if (!RowCreate(acc_pl_lbl, "pl", DoubleToString(m_pl_today, 2), 4)) return false;
+   if (!RowCreate(acc_gain_lbl, "gain", DoubleToString(m_gain_today, 2)+"%", 5)) return false; 
+   
+   return true; 
+}
+
+
 
 CFeaturePanel        feature_panel; 
 CEntryPanel          entry_panel; 
@@ -203,11 +246,12 @@ CRiskPanel           risk_panel;
 CSymbolPanel         symbol_panel;
 CVARPanel            var_panel;
 CLatestValues        latest_values_panel; 
+CAccountsPanel       accounts_panel; 
 
 class CRecurveApp : public CAppDialog {
    protected:
    private:
-      CButton           m_feature_bt, m_entry_wnd_bt, m_risk_bt, m_symb_bt, m_var_bt, m_latest_vals_bt; 
+      CButton           m_feature_bt, m_entry_wnd_bt, m_risk_bt, m_symb_bt, m_var_bt, m_latest_vals_bt, m_accounts_bt; 
       CAppDialog        *ActiveDialog; 
       
    public: 
@@ -225,6 +269,7 @@ class CRecurveApp : public CAppDialog {
                void     OnClickSymbolConfig();
                void     OnClickVAR();
                void     OnClickLatestValues(); 
+               void     OnClickAccounts(); 
                
                string   ActiveName(); 
                void     CloseActiveWindow(); 
@@ -239,6 +284,7 @@ class CRecurveApp : public CAppDialog {
       ON_EVENT(ON_CLICK, m_symb_bt, OnClickSymbolConfig);
       ON_EVENT(ON_CLICK, m_var_bt, OnClickVAR); 
       ON_EVENT(ON_CLICK, m_latest_vals_bt, OnClickLatestValues); 
+      ON_EVENT(ON_CLICK, m_accounts_bt, OnClickAccounts); 
       EVENT_MAP_END(CAppDialog) 
 }; 
 
@@ -249,7 +295,7 @@ CRecurveApp::~CRecurveApp(void) {
 }
 
 void        CRecurveApp::Init(void) {
-   Create(0, "Recurve App", 0, 10, 20, 360, 120); 
+   Create(0, "Recurve App", 0, 10, 20, 360, 150); 
    Run(); 
 }
 
@@ -261,6 +307,7 @@ bool        CRecurveApp::Create(const long chart,const string name,const int sub
    if (!ButtonCreate(m_symb_bt, "Symbol Config", COLUMN_2, ROW_2)) return false; 
    if (!ButtonCreate(m_var_bt, "VAR", COLUMN_3, ROW_1)) return false; 
    if (!ButtonCreate(m_latest_vals_bt, "Latest Values", COLUMN_3, ROW_2)) return false; 
+   if (!ButtonCreate(m_accounts_bt, "Accounts", COLUMN_1, ROW_3)) return false; 
    return true; 
 }
 
@@ -332,6 +379,14 @@ void        CRecurveApp::OnClickLatestValues(void) {
    string panel_name       = latest.NAME(); 
    if (PageIsOpen(panel_name)) return; 
    if (!OpenPage(latest)) PrintFormat("Failed to open panel: %s", panel_name); 
+}
+
+void        CRecurveApp::OnClickAccounts(void) {
+   
+   CAccountsPanel *accounts = (CAccountsPanel*)GetPointer(accounts_panel); 
+   string panel_name        =  accounts.NAME(); 
+   if (PageIsOpen(panel_name)) return; 
+   if (!OpenPage(accounts)) PrintFormat("Failed to open panel: %s", panel_name); 
 }
 
 bool        CRecurveApp::PageIsOpen(string panel_name) {

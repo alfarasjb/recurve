@@ -32,7 +32,7 @@
 
 
 #define     SUBPANEL_X        10
-#define     SUBPANEL_Y        130
+#define     SUBPANEL_Y        160
 #define     SUBPANEL_HEIGHT   210
 #define     SUBPANEL_WIDTH    180
 
@@ -96,7 +96,8 @@ enum ENUM_TRADE_MANAGEMENT {
 
 enum ENUM_FLOATING_DD_MGT {
    CUT_FLOATING_LOSS, // Cut Losses
-   MARTINGALE // Martingale 
+   MARTINGALE, // Martingale 
+   IGNORE_LOSS // Ignore
 };
 
 enum ENUM_FLOATING_GAIN_MGT {
@@ -208,6 +209,11 @@ struct TradeObj {
    ENUM_ORDER_TYPE   order_type;
 };
 
+struct AccountHistory {
+   int      symbol_trades_today; 
+   double   pl_today, deposit, start_bal_today, gain_today;
+   
+} ACCOUNT_HIST; 
 /**
 //--- GLOBAL CONFIG ---// 
 
@@ -332,7 +338,7 @@ input ENUM_PRESET             InpPreset            = MODE_AGGRESSIVE; // PRESET
 input string                  InpEmpty_2           = ""; //
 
 input string                  InpConstraints       = "Override settings.ini"; // ========== CONSTRAINTS ========= 
-input bool                    InpIgnoreLowVol      = false; // IGNORE LOW VOLATILITY CONSTRAINT
+input bool                    InpIgnoreLowVol      = true; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
 input bool                    InpUseFixedRisk      = false; // USE FIXED RISK
@@ -359,10 +365,10 @@ input string                  InpEmpty_5           = ""; //
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
 input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK_ON_PROFIT; // FLOATING PROFIT MGT
-input ENUM_FLOATING_DD_MGT    InpFloatingDD        = CUT_FLOATING_LOSS; // FLOATING DD MGT  
+input ENUM_FLOATING_DD_MGT    InpFloatingDD        = IGNORE_LOSS; // FLOATING DD MGT  
 input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
 input int                     InpMaxDayTrades      = 3; // MAX TRADES ALLOWED PER DAY PER SYMBOL
-input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_NONE; // TRADE MANAGEMENT
+input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_BREAKEVEN; // TRADE MANAGEMENT
 input double                  InpBEThreshold       = 1; // BREAKEVEN THRESHOLD (%)
 input string                  InpEmpty_6           = ""; //
 
