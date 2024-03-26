@@ -1,5 +1,5 @@
 
-#include "definition.mqh"
+#include "dependencies/definition.mqh"
 
 // --- TEMPORARY
 

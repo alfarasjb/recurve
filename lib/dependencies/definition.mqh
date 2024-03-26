@@ -1,6 +1,6 @@
 
-#include <MAIN/CalendarDownloader.mqh> 
-#include <MAIN/utilities.mqh>
+#include <RECURVE/CalendarDownloader.mqh> 
+#include <RECURVE/utilities.mqh>
 #include <Controls/Defines.mqh> 
 #include <Controls/Dialog.mqh>
 #include <Controls/Button.mqh>
@@ -9,6 +9,7 @@
 #include "profiles.mqh"
 #include "features.mqh"
 #include "trade_ops.mqh"
+#include "logging.mqh"
 
 #include "pool.mqh"
 // ========== DEFINES ========== // 

@@ -1,202 +1,6 @@
-/*
-
-========== MARCH 24, 2024 =========
-
-1. Fixed Var/Lot
-   - Fixed Lot / Risk Reference for small accounts (100USD)
-   
-2. Main Documentation
-
-3. Stacking:
-   - Max simultaneous open positiosns 
-   - Daily Trade Allocation/Limit
-   - Cut Losses/Martingale 
-   - Stack on profit 
-   
-4. Scale Lots 
-   - Manual Lot Size scale factor (User input) 
-   
-5. Data Structure for handling open positions (ALGO_POSITIONS)
-   - Handles Open positions 
-   
-6. CSV Logging Trade Info and Close Reason (reports.mqh) 
-   - For model validation 
-   
-7. Risk Management: Trail & BE 
-   - Position management 
-   
-8. Secure Morning Buffer
-   - Used in case basket reaches a certain threshold during a certain time period.
-   - Ex: Basket reaches a 5% profit during the AM session, algo closes all positions and secures profit. 
-   
-9. Restructure Configuration Folder
-
-*/
+#include "trade_mt4.mqh"
 
 
-#include "definition.mqh"
-#include "positions.mqh"
-#include "reports.mqh"
-//#include "accounts_secondary.mqh"
-class CRecurveTrade : public CTradeOps {
-
-   protected:
-   
-      //--- ACCOUNTS
-      //CAccounts      *Accounts_; 
-   
-      //-- SYMBOL PROPERTIES 
-      double         tick_value_, trade_points_, contract_size_;
-      int            digits_; 
-      
-      //-- INTERVALS
-      CPoolGeneric<int> INTERVALS_;
-      CPositions<int>   ALGO_POSITIONS_;
-      
-      
-      // Temporary. Counter used to track number of trades opened today. 
-      int            symbol_trades_today_;
-      
-      string         SYMBOLS_PATH_, SETTINGS_PATH_; 
-   private:
-   public: 
-   
-      //-- SYMBOL PROPERTIES WRAPPERS 
-      double         TICK_VALUE() const   { return tick_value_; }
-      double         TRADE_POINTS() const { return trade_points_; }
-      double         DIGITS() const       { return digits_; }
-      double         CONTRACT() const     { return contract_size_; }
-      
-   
-      //-- CONSTRUCTOR
-      CRecurveTrade(); 
-      ~CRecurveTrade(); 
-  
-      //-- INITIALIZATION
-      void           Init(); 
-      void           InitializeConfigurationPaths(); 
-      void           InitializeFeatureParameters();
-      void           InitializeSymbolProperties();
-      void           InitializeIntervals();
-      void           InitializeDays();
-      void           InitializeConfiguration();
-      void           InitializeOpenPositions(); 
-      void           InitializeAccounts(); 
-      void           OnEndOfDay(); 
-      void           TrackAccounts(); 
-      
-      //-- CONFIG
-      void           LoadSettingsFromFile();
-      void           LoadSettingsFromInput();
-      void           LoadSymbolConfigFromFile();
-      void           LoadSymbolConfigFromInput();
-  
-      void           GenerateInterval(int &intervals[]);
-  
-      //-- FEATURES 
-      string         indicator_path(string indicator_name); 
-      
-      
-      double         DAILY_VOLATILITY(int volatility_mode, int shift = 1); 
-      double         STANDARD_SCORE(int shift = 1);
-      double         SKEW(int shift = 1);
-      double         BBANDS(int mode, int num_sd = 2, int shift = 1);
-      double         BBANDS_SLOW(int mode, int num_sd = 2, int shift = 1);
-      
-      //-- FEATURE WRAPPER 
-      double         DAY_VOL();
-      double         DAY_PEAK_VOL();
-      double         UPPER_BANDS();
-      double         LOWER_BANDS();
-      double         EXTREME_UPPER();
-      double         EXTREME_LOWER();
-      double         SLOW_UPPER();
-      double         SLOW_LOWER();
-      double         PD_UPPER_BANDS();
-      double         PD_LOWER_BANDS(); 
-      
-      
-      //-- LOGIC
-      bool           ValidTradeWindow(); 
-      bool           ValidDayVolatility(); 
-      bool           ValidDayOfWeek();
-      ENUM_SIGNAL    Signal(FeatureValues &features);
-      ENUM_SIGNAL    CutLoss(FeatureValues &features); 
-      ENUM_SIGNAL    TakeProfit(FeatureValues &features);
-      bool           EndOfDay();
-      bool           ValidInterval();
-      bool           DayOfWeekInTradingDays();
-      bool           ValidRecoveryWindow(); 
-     
-      
-      //-- OPERATIONS 
-      int            Stage();
-      int            SendOrder(ENUM_SIGNAL signal);
-      TradeParams    ParamsLong(ENUM_ORDER_SEND_METHOD method, TradeLayer &layer); 
-      TradeParams    ParamsShort(ENUM_ORDER_SEND_METHOD method, TradeLayer &layer);
-      TradeParams    SetTradeParameters(ENUM_ORDER_SEND_METHOD method, TradeLayer &layer);
-      double         CalcLot(double sl_distance);
-      double         SLFactor(double entry_price);
-      int            SendMarketOrder(TradeParams &PARAMS);
-      int            CloseOrder();
-      double         CatastrophicSLFactor(double lot, double var);
-      double         CatastrophicLossVAR();
-      double         ValueAtRisk();
-      double         FloatingPL();
-      bool           InFloatingLoss();
-      FeatureValues  SetLatestFeatureValues();
-      bool           PreviousDayValid(ENUM_DIRECTION direction);
-      string         IntervalsAsString();
-      string         DaysAsString();
-      bool           ValidStack(); 
-      bool           ValidInvert(); 
-      bool           ValidTakeProfit(ENUM_ORDER_TYPE order); 
-      double         CalcBuffer();
-      int            SecureBuffer(); 
-      double         PortfolioRunningPL(); 
-      int            UnwindPositions();
-      CReports       *GenerateReports(); 
-      string         PresetKey(); 
-      int            Recover(); 
-      
-      //--- POSITION MANAGEMENT
-      bool           ValidFloatingGain(); 
-      bool           ValidFloatingLoss(); 
-      //bool           ValidLayers(); 
-      bool           Breakeven(); 
-      bool           ValidTradeToday(); 
-      
-      //-- DATA STRUCTURE
-      int               UpdatePositions();   
-      int               RepopulateAlgoPositions(CPoolGeneric<int> *&synthetic); 
-      ENUM_ORDER_TYPE   CurrentOpenPosition(); 
-      
-      int            ClosePositions(ENUM_SIGNAL reason); 
-      
-      
-      //-- GENERIC
-      template <typename T>   string      ArrayAsString(T &data[]);
-      template <typename T>   void        ClearArray(T &data[]);  
-      template <typename T>   void        Append(T &data[], T item);
-      template <typename T>   bool        ElementInArray(T element, T &src[]); 
-   
-      //-- UTILITIES 
-      int            logger(string message, string function, bool notify=false, bool debug=false);
-      bool           notification(string message);
-      int            error(string message);
-}; 
-
-
-CRecurveTrade::CRecurveTrade() {
-}
-
-CRecurveTrade::~CRecurveTrade() {
-   CONFIG.TRADING_DAYS.Clear(); 
-   INTERVALS_.Clear();
-   ALGO_POSITIONS_.Clear(); 
-   
-   //delete Accounts_; 
-}
 
 void           CRecurveTrade::Init() {
    InitializeConfigurationPaths();
@@ -231,7 +35,7 @@ void           CRecurveTrade::OnEndOfDay() {
    //--- Clear Today
    //Accounts_.ClearToday(); 
    symbol_trades_today_    = 0; 
-   logger(StringFormat("Reset. Symbol Trades Today: %i", symbol_trades_today_), __FUNCTION__);    
+   Log.LogInformation(StringFormat("Reset. Symbol Trades Today: %i", symbol_trades_today_), __FUNCTION__);    
 }
 
 
@@ -267,7 +71,7 @@ void           CRecurveTrade::InitializeConfigurationPaths() {
    string   key   = PresetKey(); 
    SYMBOLS_PATH_  = StringFormat("%s\\%s\\symbols\\", CONFIG_DIRECTORY, key); 
    SETTINGS_PATH_ = StringFormat("%s\\%s\\", CONFIG_DIRECTORY, key); 
-   logger(StringFormat("Selected Preset: %s Symbols Path: %s, Settings Path: %s",
+   Log.LogInformation(StringFormat("Selected Preset: %s Symbols Path: %s, Settings Path: %s",
       EnumToString(InpPreset), 
       SYMBOLS_PATH_,
       SETTINGS_PATH_), __FUNCTION__); 
@@ -289,7 +93,7 @@ void           CRecurveTrade::InitializeOpenPositions() {
       Initializes current open positions into an array. 
    **/
    int num_open_positions  = ALGO_POSITIONS_.Init(); 
-   logger(StringFormat("Num Open Positions: %i", num_open_positions), __FUNCTION__); 
+   Log.LogInformation(StringFormat("Num Open Positions: %i", num_open_positions), __FUNCTION__); 
 }
 //+------------------------------------------------------------------+
 //| ARRAY OPS                                                        |
@@ -363,9 +167,7 @@ void           CRecurveTrade::LoadSymbolConfigFromFile() {
    
    //-- Returns Input configuration if config file is not found for attached symbol. 
    if (num_trading_days == 0) {
-      string message = StringFormat("No Config found for %s. Using inputs.", Symbol()); 
-      error(message);
-      logger(message, __FUNCTION__);
+      Log.LogError(StringFormat("No Config found for %s. Using inputs.", Symbol()), __FUNCTION__); 
       LoadSymbolConfigFromInput();
       delete feature;
       return;
@@ -399,7 +201,7 @@ void           CRecurveTrade::LoadSettingsFromFile() {
    CFeatureLoader *feature    = new CFeatureLoader(SETTINGS_PATH_, "settings");
    bool load      = feature.LoadFile(Parse); 
    if (!load) {
-      logger("Failed to load settings.", __FUNCTION__); 
+      Log.LogInformation("Failed to load settings.", __FUNCTION__); 
       return; 
    }
    
@@ -447,11 +249,11 @@ void           CRecurveTrade::InitializeConfiguration() {
    //-- Loads config based on source: Input or File (Located in common folder)
    switch(InpConfig) {
       case FILE:
-         logger("Loading Config from Settings.", __FUNCTION__);
+         Log.LogInformation("Loading Config from Settings.", __FUNCTION__);
          LoadSymbolConfigFromFile();
          break;
       case INPUT:  
-         logger("Loading Config from inputs.", __FUNCTION__);
+         Log.LogInformation("Loading Config from inputs.", __FUNCTION__);
          InitializeDays();
          CONFIG.low_volatility_thresh  = InpLowVolThresh;
          CONFIG.use_pd = InpUsePrevDay;
@@ -461,7 +263,7 @@ void           CRecurveTrade::InitializeConfiguration() {
    CONFIG.days_string      = DaysAsString();
    CONFIG.intervals_string = IntervalsAsString(); 
    
-   logger(StringFormat("Num Trading Days: %i, Days: %s, Volatility: %f", 
+   Log.LogInformation(StringFormat("Num Trading Days: %i, Days: %s, Volatility: %f", 
       CONFIG.TRADING_DAYS.Size(), 
       DaysAsString(), 
       CONFIG.low_volatility_thresh), __FUNCTION__);
@@ -479,7 +281,7 @@ void           CRecurveTrade::InitializeDays() {
       CONFIG.TRADING_DAYS.Append(day); 
    }
    int size = CONFIG.TRADING_DAYS.Size(); 
-   logger(StringFormat("%i Trading Days Valid.", size), __FUNCTION__);
+   Log.LogInformation(StringFormat("%i Trading Days Valid.", size), __FUNCTION__);
 }
 
 void           CRecurveTrade::InitializeIntervals() {
@@ -491,7 +293,7 @@ void           CRecurveTrade::InitializeIntervals() {
    //-- Returns if selected timeframe does not match input timeframe. 
    ENUM_TIMEFRAMES   current_timeframe = Period();
    if (current_timeframe != InpRPTimeframe && InpRPTimeframe != PERIOD_CURRENT) {
-      logger(StringFormat("Invalid Timeframe. Selected: %i, Target: %s", Period(), EnumToString(InpRPTimeframe)), __FUNCTION__);
+      Log.LogInformation(StringFormat("Invalid Timeframe. Selected: %i, Target: %s", Period(), EnumToString(InpRPTimeframe)), __FUNCTION__);
       return;
    }
    
@@ -666,14 +468,14 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
 
    //-- Returns if trade window is closed. 
    if (!ValidTradeWindow()) { 
-      logger("ORDER SEND FAILED. Trade window is closed.", __FUNCTION__);
+      Log.LogInformation("ORDER SEND FAILED. Trade window is closed.", __FUNCTION__);
       return 0;
    }
    
    //-- Returns if interval is invalid: selected timeframe does not match input timeframe. 
    if (!ValidInterval()) {
       string error_message = StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", TimeMinute(TimeCurrent()));
-      logger(error_message, __FUNCTION__); 
+      Log.LogInformation(error_message, __FUNCTION__); 
       //error(error_message);
       return 0;
    }
@@ -681,7 +483,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    int size = ALGO_POSITIONS_.Size(); 
    //-- Returns if current open positions is equal to max layers 
    if (size >= InpMaxLayers) {
-      logger(StringFormat("Max Layers Reached. Current Open Positions for %s: %i. Max Layers: %i",
+      Log.LogInformation(StringFormat("Max Layers Reached. Current Open Positions for %s: %i. Max Layers: %i",
          Symbol(),
          size, 
          InpMaxLayers), __FUNCTION__, false, true); 
@@ -690,7 +492,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
 
    //int num_trades_opened_today   = Accounts_.AccountSymbolTradesToday(); 
    if (symbol_trades_today_ >= InpMaxDayTrades) {
-      logger(StringFormat("ORDER SEND FAILED. Daily Trade Limit Reached. Trades: %i", symbol_trades_today_), __FUNCTION__);
+      Log.LogInformation(StringFormat("ORDER SEND FAILED. Daily Trade Limit Reached. Trades: %i", symbol_trades_today_), __FUNCTION__);
       return 0; 
    }
    
@@ -700,15 +502,15 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    int ticket     = OP_OrderOpen(Symbol(), (ENUM_ORDER_TYPE)PARAMS.order_type, PARAMS.volume, PARAMS.entry_price, PARAMS.sl_price, PARAMS.tp_price, comment);
    
    if (ticket == -1) {
-      string error_message = StringFormat("ORDER SEND FAILED. ERROR: %i. Vol: %f, Entry: %f, SL: %f, TP: %f", 
+      string error_message = StringFormat("ORDER SEND FAILED. ERROR: %i. Symbol: %s, Vol: %f, Entry: %f, SL: %f, TP: %f", 
          GetLastError(), 
+         Symbol(), 
          PARAMS.volume, 
          PARAMS.entry_price, 
          PARAMS.sl_price, 
          PARAMS.tp_price);
          
-      logger(error_message, __FUNCTION__, true);
-      error(error_message);
+      Log.LogError(error_message, __FUNCTION__); 
       return -1; 
    }
    /*
@@ -729,7 +531,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
       default: break;
    }
    
-   logger(StringFormat("Updated active positions: %i, Ticket: %i", NumActivePositions(), pos.pos_ticket), __FUNCTION__);
+   Log.LogInformation(StringFormat("Updated active positions: %i, Ticket: %i", NumActivePositions(), pos.pos_ticket), __FUNCTION__);
    //AddOrderToday();
    */
    
@@ -737,7 +539,8 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    //Accounts_.AddTradeToday(ticket); 
    //Accounts_.AddOpenedPositionToday(ticket); 
    symbol_trades_today_++; 
-   logger(StringFormat("Order Placed. Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f, Symbol Trades Today: %i", 
+   Log.LogInformation(StringFormat("Order Placed. Symbol: %s, Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f, Symbol Trades Today: %i", 
+      Symbol(),
       ticket,
       EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type), 
       PARAMS.volume, 
@@ -764,7 +567,7 @@ int            CRecurveTrade::CloseOrder() {
       reports.Reason("deadline"); 
       reports.Export(); 
       delete reports;
-      logger("Close All. Reason: deadline.", __FUNCTION__, false, true); 
+      Log.LogInformation("Close All. Reason: deadline.", __FUNCTION__, false, true); 
    }
    
    UpdatePositions(); 
@@ -790,7 +593,7 @@ double         CRecurveTrade::FloatingPL() {
       //-- Adds trades found
       trades_found++;
    }
-   if (trades_found > 0) logger(StringFormat("%i Open Positions Found for %s. Floating P/L: %f", 
+   if (trades_found > 0) Log.LogInformation(StringFormat("%i Open Positions Found for %s. Floating P/L: %f", 
       trades_found, 
       Symbol(), 
       floating_pl), __FUNCTION__);
@@ -803,7 +606,7 @@ bool        CRecurveTrade::InFloatingLoss() {
    **/
    double   floating_pl    = FloatingPL(); 
    if (floating_pl >= 0) return false; 
-   logger(StringFormat("%s is in floating loss.", Symbol()), __FUNCTION__);
+   Log.LogInformation(StringFormat("%s is in floating loss.", Symbol()), __FUNCTION__);
    return true; 
 }
 
@@ -913,7 +716,7 @@ bool           CRecurveTrade::ValidTradeToday() {
    //int num_trades_today    = Accounts_.AccountSymbolTradesToday(); 
    int num_trades_today = symbol_trades_today_; 
    if (num_trades_today >= InpMaxDayTrades) {
-      logger(StringFormat("Daily Trade Limit is reached. Trades Opened Today: %i Limit: %i", 
+      Log.LogInformation(StringFormat("Daily Trade Limit is reached. Trades Opened Today: %i Limit: %i", 
          num_trades_today, 
          InpMaxDayTrades), __FUNCTION__); 
       return false; 
@@ -938,7 +741,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
       ENUM_ORDER_TYPE current_position = CurrentOpenPosition(), order = PosOrderType(); 
       int ticket  = PosTicket(); 
       bool valid_interval  = ValidInterval(), profit = PosProfit() > 0;
-      logger(StringFormat("Signal: %s Ticket: %i", EnumToString(reason), ticket), __FUNCTION__);
+      Log.LogInformation(StringFormat("Signal: %s Ticket: %i", EnumToString(reason), ticket), __FUNCTION__);
       
       bool c=false; 
       
@@ -952,7 +755,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
          If Valid Stack: ignore 
          Else: continue 
       **/
-      if (Breakeven()) logger(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
+      if (Breakeven()) Log.LogInformation(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
       
       
       switch(reason) {
@@ -999,12 +802,12 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
    int num_closed = OP_OrdersCloseBatch(extracted); 
    
    if (num_closed == 0 && num_extracted > 0) {
-      logger(StringFormat("Num Closed: %i", num_closed), __FUNCTION__);
+      Log.LogInformation(StringFormat("Num Closed: %i", num_closed), __FUNCTION__);
       CReports *reports = GenerateReports(); 
       reports.Export(reason); 
       delete reports; 
       
-      logger(StringFormat("Batch Close. Reason: %s", EnumToString(reason)), __FUNCTION__, false, true); 
+      Log.LogInformation(StringFormat("Batch Close. Reason: %s", EnumToString(reason)), __FUNCTION__, false, true); 
       //--- UPDATE ACCOUNTS LINKED LIST HERE
       //int updated = Accounts_.AddClosedPositions(extracted); 
       //PrintFormat("UPDATE: %i", updated); 
@@ -1026,10 +829,10 @@ int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
    
    switch(signal) {
       case TRADE_LONG:
-         logger("Send Order: Long", __FUNCTION__);    
+         Log.LogInformation("Send Order: Long", __FUNCTION__);    
          return SendMarketOrder(ParamsLong(MODE_MARKET, LAYER));
       case TRADE_SHORT:
-         logger("Send Order: Short", __FUNCTION__);    
+         Log.LogInformation("Send Order: Short", __FUNCTION__);    
          return SendMarketOrder(ParamsShort(MODE_MARKET, LAYER));
       default: break; 
    }
@@ -1060,7 +863,7 @@ int            CRecurveTrade::SecureBuffer() {
    
    int current_hour = TimeHour(TimeCurrent()); 
    if (current_hour > InpBufferDeadline) {
-      //logger(StringFormat("Reached Buffer Deadline. Current: %i, Deadline: %i", current_hour, InpBufferDeadline), __FUNCTION__); 
+      //Log.LogInformation(StringFormat("Reached Buffer Deadline. Current: %i, Deadline: %i", current_hour, InpBufferDeadline), __FUNCTION__); 
       return 0; 
    }
    
@@ -1068,13 +871,13 @@ int            CRecurveTrade::SecureBuffer() {
    double running_pl = PortfolioRunningPL();
    
    if (running_pl < buffer) {
-      logger(StringFormat("Secure Invalid. Running PL is below minimum threshold. Buffer: %f, Running PL: %f", 
+      Log.LogInformation(StringFormat("Secure Invalid. Running PL is below minimum threshold. Buffer: %f, Running PL: %f", 
          buffer, 
          running_pl), __FUNCTION__); 
       return 0;
    }
    
-   logger(StringFormat("Securing Open PL. Buffer: %f, Running PL: %f", 
+   Log.LogInformation(StringFormat("Securing Open PL. Buffer: %f, Running PL: %f", 
       buffer, 
       running_pl), __FUNCTION__); 
    int extracted[]; 
@@ -1082,7 +885,7 @@ int            CRecurveTrade::SecureBuffer() {
    
    int c = OP_OrdersCloseBatch(extracted); 
    if (c == 0 && num_extracted > 0) {
-      logger(StringFormat("Positions Closed: %i", 
+      Log.LogInformation(StringFormat("Positions Closed: %i", 
          num_extracted), __FUNCTION__);
       CReports *reports = GenerateReports(); 
       reports.Reason("buffer"); 
@@ -1112,14 +915,14 @@ int            CRecurveTrade::Recover() {
    if (!ValidRecoveryWindow()) return 0; 
    
    if (running_pl < 0) {
-      logger(StringFormat("Recovery window valid. Running PL is negative. PL: %f", running_pl), __FUNCTION__); 
+      Log.LogInformation(StringFormat("Recovery window valid. Running PL is negative. PL: %f", running_pl), __FUNCTION__); 
       return 0; 
    }
    int extracted[];
    int num_extracted = ALGO_POSITIONS_.Extract(extracted); 
    int c = OP_OrdersCloseBatch(extracted); 
    if (c == 0 && num_extracted > 0) {
-      logger(StringFormat("PL Recovered. Positions Closed: %i", 
+      Log.LogInformation(StringFormat("PL Recovered. Positions Closed: %i", 
          num_extracted), __FUNCTION__); 
       CReports *reports = GenerateReports(); 
       reports.Reason("recovery");
@@ -1168,7 +971,7 @@ int            CRecurveTrade::UpdatePositions() {
    
    int open_positions = PosTotal(); 
    if (open_positions == 0) {
-      logger("No Open Positions. Order pool is empty.", __FUNCTION__);
+      Log.LogInformation("No Open Positions. Order pool is empty.", __FUNCTION__);
       ALGO_POSITIONS_.Clear(); 
       return open_positions; 
    }
@@ -1191,13 +994,13 @@ int            CRecurveTrade::UpdatePositions() {
    
    if (synth_size == 0) {
       ALGO_POSITIONS_.Clear();
-      logger(StringFormat("No Open Positions. Algo: %i. Reset Size: %i", algo_size, ALGO_POSITIONS_.Size()), __FUNCTION__); 
+      Log.LogInformation(StringFormat("No Open Positions. Algo: %i. Reset Size: %i", algo_size, ALGO_POSITIONS_.Size()), __FUNCTION__); 
       delete synthetic; 
       return algo_size; 
    }
    
    if (synth_size != algo_size) {
-      logger(StringFormat("Order pool and Algo Positions length mismatch. Repopulating Algo Positions. Pool: %i, Algo: %i", 
+      Log.LogInformation(StringFormat("Order pool and Algo Positions length mismatch. Repopulating Algo Positions. Pool: %i, Algo: %i", 
          synth_size, 
          algo_size), __FUNCTION__); 
          
@@ -1208,7 +1011,7 @@ int            CRecurveTrade::UpdatePositions() {
    
    else {
       //-- Match tickets 
-      logger("Order pool and Algo Positions length matched. Verifying.", __FUNCTION__); 
+      Log.LogInformation("Order pool and Algo Positions length matched. Verifying.", __FUNCTION__); 
       for (int j = 0; j < algo_size; j++) {
          if (synthetic.Item(j) != ALGO_POSITIONS_.Item(j)) {
             //-- If elements are mismatched, algo positions will be repopulated. 
@@ -1219,7 +1022,7 @@ int            CRecurveTrade::UpdatePositions() {
       }
    }
    
-   logger("Tickets stored in Algo Positions are valid.", __FUNCTION__, false, true); 
+   Log.LogInformation("Tickets stored in Algo Positions are valid.", __FUNCTION__, false, true); 
    delete synthetic; 
    return ALGO_POSITIONS_.Size(); 
    
@@ -1263,7 +1066,7 @@ bool           CRecurveTrade::ValidInterval() {
    
    //-- Returns true if no intervals are stored. 
    if (size == 0) {
-      logger("Empty Interval. Returning True.", __FUNCTION__);
+      Log.LogInformation("Empty Interval. Returning True.", __FUNCTION__);
       return true;
    }
    
@@ -1331,7 +1134,7 @@ int            CRecurveTrade::Stage() {
    //-- Locks in trades in profit early in the trading session. 
    int secured = SecureBuffer(); 
    
-   if (secured > 0) logger(StringFormat("Secured %i positions.", secured), __FUNCTION__); 
+   if (secured > 0) Log.LogInformation(StringFormat("Secured %i positions.", secured), __FUNCTION__); 
    
    
    //-- Sets latest feature values 
@@ -1356,7 +1159,7 @@ int            CRecurveTrade::Stage() {
    //if (IsTesting()) Accounts_.Track(); 
    
    //int num_trades_today = Accounts_.TradesToday();
-   //logger(StringFormat("Updated Trades Today: %i", num_trades_today), __FUNCTION__); 
+   //Log.LogInformation(StringFormat("Updated Trades Today: %i", num_trades_today), __FUNCTION__); 
    return 0;
 }
 
@@ -1524,37 +1327,6 @@ FeatureValues  CRecurveTrade::SetLatestFeatureValues() {
 }
 
 
-// --- LOGGING --- // 
-
-int            CRecurveTrade::logger(string message,string function,bool notify=false,bool debug=false) {
-   if (!InpTerminalMsg && !debug) return -1;
-   
-   string mode    = debug ? "DEBUGGER" : "LOGGER";
-   string func    = InpDebugLogging ? StringFormat(" - %s", function) : "";
-   
-   PrintFormat("%s %s: %s", mode, func, message);
-   
-   if (notify) notification(message);
-   return 1;
-}
-
-bool           CRecurveTrade::notification(string message) {
-
-   if (!InpPushNotifs) return false;
-   if (IsTesting()) return false;
-   
-   bool n   = SendNotification(message);
-   
-   if (!n)  logger(StringFormat("Failed to send notification. Cose: %i", GetLastError()), __FUNCTION__);
-   return n;
-
-}
-
-int            CRecurveTrade::error(string message) {
-   
-   //Alert(message);
-   return 1;
-}
 
 
 
