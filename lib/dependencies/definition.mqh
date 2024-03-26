@@ -47,6 +47,16 @@ enum ENUM_CLOSE_REASON {
    STACK, INVERT, TAKE_PROFIT, DEADLINE, CUT
 };
 
+enum ENUM_TRADE_LOGIC_ERROR_REASON {
+   REASON_GAIN_MGT,
+   REASON_DD_MGT,
+   REASON_INVERT,
+   REASON_WRONG_ORDER_TYPE,
+   REASON_ORDER_IN_PROFIT,
+   REASON_ORDER_IN_DD,
+   REASON_SECURE_CONFIG_FALSE
+};
+
 enum ENUM_DIRECTION {
    LONG, SHORT, INVALID
 };
@@ -346,7 +356,7 @@ input string                  InpConstraints       = "Override settings.ini"; //
 input bool                    InpIgnoreLowVol      = true; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
-input bool                    InpUseFixedRisk      = false; // USE FIXED RISK
+input bool                    InpUseFixedRisk      = true; // USE FIXED RISK
 input string                  InpEmpty_3           = ""; 
 
 input string                  InpConfigMain        = "Main Symbol Config"; // ========== SYMBOL CONFIG ========== 
@@ -363,14 +373,14 @@ input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE
 input int                     InpMagic             = 232323; // MAGIC NUMBER
 input double                  InpMaxLot            = 0.01; // MAX LOT
 input double                  InpLotScaleFactor    = 1; // LOT SIZE SCALE FACTOR
-input bool                    InpSecureBuffer      = false; // SECURE BUFFER
+input bool                    InpSecureBuffer      = true; // SECURE BUFFER
 input double                  InpBufferPercent     = 5; // BUFFER (%)
 input int                     InpBufferDeadline    = 8; // BUFFER DEADLINE (HOUR - Server Time)
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
-input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK_ON_PROFIT; // FLOATING PROFIT MGT
-input ENUM_FLOATING_DD_MGT    InpFloatingDD        = IGNORE_LOSS; // FLOATING DD MGT  
+input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK_ON_PROFIT; // FLOATING PROFIT MGT - Model Default - IGNORE
+input ENUM_FLOATING_DD_MGT    InpFloatingDD        = IGNORE_LOSS; // FLOATING DD MGT - Model Default - CUT 
 input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
 input int                     InpMaxDayTrades      = 3; // MAX TRADES ALLOWED PER DAY PER SYMBOL
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_BREAKEVEN; // TRADE MANAGEMENT

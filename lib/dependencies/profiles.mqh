@@ -1,4 +1,7 @@
 
+#include "logging.mqh"
+
+
 struct TradeProfile {
    string   trade_symbol;
    int      trade_days[], trade_use_pd;
@@ -8,14 +11,16 @@ struct TradeProfile {
 class CProfiles {
 protected:
 private:
-   int      file_handle_; 
-   string   file_path_;
-   string   symbols_[]; 
+   int      file_handle_;
+   string   file_path_, symbols_[]; 
+   
+   CLogging    *Log_; 
+   
 public: 
-   //int FILE_HANDLE;
-   //string FILE_PATH;
-   //string SYMBOLS[];
 
+   int      FileHandle()   const    { return file_handle_; }
+   string   FilePath()     const    { return file_path_; }
+   
    CProfiles(string path);
    ~CProfiles();
    
@@ -28,11 +33,16 @@ public:
 }; 
 
 CProfiles::CProfiles(string path) : 
-   file_path_(path) {}
+   file_path_(path) {
+   
+   Log_  = new CLogging(true, false, false);    
+   
+}
 
 CProfiles::~CProfiles(void) {
    ClearHandle(); 
    ClearTradingDays();
+   delete Log_; 
 }
 
 int   CProfiles::ClearHandle(void) {
@@ -62,10 +72,9 @@ TradeProfile     CProfiles::BuildProfile(void) {
    ResetLastError();
    ClearHandle(); 
    
-   if (FileIsExist(file_path_, FILE_COMMON)) {
-      PrintFormat("%s File %s found", __FUNCTION__, file_path_);
-      
-   } else PrintFormat("%s File %s not found.", __FUNCTION__, file_path_);
+   if (FileIsExist(FilePath(), FILE_COMMON)) {
+      Log_.LogInformation(StringFormat("File %s found.", FilePath()), __FUNCTION__); 
+   } else Log_.LogError(StringFormat("File %s not found.", file_path_), __FUNCTION__);
    
    file_handle_    = FileOpen(file_path_, FILE_CSV | FILE_READ | FILE_ANSI | FILE_COMMON, "\n");
    if (file_handle_ == -1) return TRADE_PROFILE; 
@@ -81,8 +90,8 @@ TradeProfile     CProfiles::BuildProfile(void) {
       
       AddToSymbols(result[0]);
       if (result[0] != Symbol()) continue; 
+      Log_.LogInformation(StringFormat("Profile found for %s", Symbol()), __FUNCTION__); 
       
-      PrintFormat("%s PROFILE FOUND FOR %s", __FUNCTION__, Symbol());
       TRADE_PROFILE.trade_symbol       = result[0];
       TRADE_PROFILE.low_volatility_threshold = StringToDouble(result[1]);
       

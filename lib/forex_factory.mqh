@@ -10,6 +10,7 @@ class CNewsEvents{
    protected:
    private:
       datetime    entry_window_open, entry_window_close;
+      CLogging    *Log_; 
    
    public:
       
@@ -51,10 +52,12 @@ class CNewsEvents{
 
 
 CNewsEvents::CNewsEvents(void){
+   Log_ = new CLogging(true, false, false); 
 }
 
 CNewsEvents::~CNewsEvents(void){
    ClearHandle();
+   delete Log_; 
 }
 
 void        CNewsEvents::UpdateEntryWindow(datetime window_open,datetime window_end){
@@ -90,10 +93,10 @@ int         CNewsEvents::FetchData(void){
    
    
    if (!FileExists(file_path)) {
-      PrintFormat("%s: File %s not found. Downloading from forex factory.", __FUNCTION__, file_path);
-      if (DownloadNews(file_path, InpNewsSource) == -1) PrintFormat("%s: Download Failed. Error: %i", __FUNCTION__, GetLastError());
+      Log_.LogError(StringFormat("File %s not found. Downloading from forex factory.", file_path), __FUNCTION__);
+      if (DownloadNews(file_path, InpNewsSource) == -1) Log_.LogError(StringFormat("Download Failed. Error: %i", GetLastError()), __FUNCTION__);
    }
-   else PrintFormat("%s: File %s found", __FUNCTION__, file_path);
+   else Log_.LogInformation(StringFormat("File %s found", file_path), __FUNCTION__);
    
    
    FILE_HANDLE = FileOpen(file_path, FILE_CSV | FILE_READ | FILE_ANSI, "\n");
