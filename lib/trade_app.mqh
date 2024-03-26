@@ -1,6 +1,5 @@
 
-#include "definition.mqh"
-
+#include "dependencies/definition.mqh"
 
 
 class CDataPanel : public CAppDialog {
@@ -253,7 +252,7 @@ class CRecurveApp : public CAppDialog {
    private:
       CButton           m_feature_bt, m_entry_wnd_bt, m_risk_bt, m_symb_bt, m_var_bt, m_latest_vals_bt, m_accounts_bt; 
       CAppDialog        *ActiveDialog; 
-      
+      CLogging          *Log;
    public: 
                         CRecurveApp();
                         ~CRecurveApp(); 
@@ -288,7 +287,9 @@ class CRecurveApp : public CAppDialog {
       EVENT_MAP_END(CAppDialog) 
 }; 
 
-CRecurveApp::CRecurveApp(void) {}
+CRecurveApp::CRecurveApp(void) {
+   Log   = new CLogging(InpTerminalMsg, InpPushNotifs, false); 
+}
 
 CRecurveApp::~CRecurveApp(void) {
    Destroy();
@@ -339,7 +340,7 @@ void        CRecurveApp::OnClickFeature(void) {
    CFeaturePanel *feature  = (CFeaturePanel*)GetPointer(feature_panel); 
    string panel_name = feature.NAME();
    if (PageIsOpen(panel_name)) return; 
-   if (!OpenPage(feature)) PrintFormat("Failed to open panel: %s", panel_name); 
+   if (!OpenPage(feature)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
 
 }
 void        CRecurveApp::OnClickEntryWindow(void) {
@@ -347,7 +348,7 @@ void        CRecurveApp::OnClickEntryWindow(void) {
    CEntryPanel *entry   = (CEntryPanel*)GetPointer(entry_panel); 
    string panel_name = entry.NAME();
    if (PageIsOpen(panel_name)) return; 
-   if (!OpenPage(entry)) PrintFormat("Failed to open panel: %s", panel_name);
+   if (!OpenPage(entry)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
    
 }
 void        CRecurveApp::OnClickRisk(void) {
@@ -355,7 +356,7 @@ void        CRecurveApp::OnClickRisk(void) {
    CRiskPanel *risk     = (CRiskPanel*)GetPointer(risk_panel); 
    string panel_name    = risk.NAME(); 
    if (PageIsOpen(panel_name)) return;
-   if (!OpenPage(risk)) PrintFormat("Failed to open panel: %s", panel_name); 
+   if (!OpenPage(risk)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
    
 }
 void        CRecurveApp::OnClickSymbolConfig(void) {
@@ -363,7 +364,7 @@ void        CRecurveApp::OnClickSymbolConfig(void) {
    CSymbolPanel *symbol = (CSymbolPanel*)GetPointer(symbol_panel);
    string panel_name    = symbol.NAME(); 
    if (PageIsOpen(panel_name)) return; 
-   if (!OpenPage(symbol)) PrintFormat("Failed to open panel: %s", panel_name); 
+   if (!OpenPage(symbol)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
    
 }
 void        CRecurveApp::OnClickVAR(void) {
@@ -371,14 +372,16 @@ void        CRecurveApp::OnClickVAR(void) {
    CVARPanel *var       = (CVARPanel*)GetPointer(var_panel);
    string panel_name    = var.NAME(); 
    if (PageIsOpen(panel_name)) return; 
-   if (!OpenPage(var)) PrintFormat("Failed to open panel: %s", panel_name); 
+   if (!OpenPage(var)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
+
 }
 void        CRecurveApp::OnClickLatestValues(void) {
    
    CLatestValues *latest   = (CLatestValues*)GetPointer(latest_values_panel); 
    string panel_name       = latest.NAME(); 
    if (PageIsOpen(panel_name)) return; 
-   if (!OpenPage(latest)) PrintFormat("Failed to open panel: %s", panel_name); 
+   if (!OpenPage(latest)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
+   
 }
 
 void        CRecurveApp::OnClickAccounts(void) {
@@ -386,7 +389,7 @@ void        CRecurveApp::OnClickAccounts(void) {
    CAccountsPanel *accounts = (CAccountsPanel*)GetPointer(accounts_panel); 
    string panel_name        =  accounts.NAME(); 
    if (PageIsOpen(panel_name)) return; 
-   if (!OpenPage(accounts)) PrintFormat("Failed to open panel: %s", panel_name); 
+   if (!OpenPage(accounts)) Log.LogError(StringFormat("Failed to open panel: %s", panel_name), __FUNCTION__); 
 }
 
 bool        CRecurveApp::PageIsOpen(string panel_name) {

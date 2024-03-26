@@ -1,14 +1,14 @@
+
 #ifdef __MQL4__ 
-#include "trade_mt4.mqh"
+#include "lib/trade_mt4_h.mqh"
 #endif
 
 #include <B63/Generic.mqh>
 #include <B63/CExport.mqh>
-#include <MAIN/Loader.mqh> 
-#include "forex_factory.mqh"
-#include "features.mqh"
-#include "trade_app.mqh"
-
+#include <RECURVE/Loader.mqh> 
+#include "lib/forex_factory.mqh"
+#include "lib/dependencies/features.mqh"
+#include "lib/trade_app.mqh"
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
@@ -33,10 +33,13 @@ int OnInit() {
 
 
 void OnDeinit(const int reason) {
-
-   CExport  *export_hist   = new CExport("recurve_backtest"); 
-   if (IsTesting()) export_hist.ExportAccountHistory();
-   delete export_hist;
+   
+   if (IsTesting()) {
+      CExport  *export_hist   = new CExport("recurve_backtest"); 
+      export_hist.ExportAccountHistory();
+      delete export_hist;
+   }
+   
    
    ObjectsDeleteAll(0, -1, -1); 
    //ExtDialog.Destroy(reason); 
