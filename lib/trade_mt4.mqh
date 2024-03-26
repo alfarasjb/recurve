@@ -180,6 +180,22 @@ class CRecurveTrade : public CTradeOps {
       template <typename T>   void        ClearArray(T &data[]);  
       template <typename T>   void        Append(T &data[], T item);
       template <typename T>   bool        ElementInArray(T element, T &src[]); 
+      
+      
+      //--- SIGNAL MANAGEMENT ---// 
+      //--- TEMPORARY ---// 
+      
+      
+      bool        ValidCloseOnTradeLong(int ticket); 
+      bool        ValidCloseOnTradeShort(int ticket);
+      bool        ValidCloseOnCutLong(int ticket);
+      bool        ValidCloseOnCutShort(int ticket);
+      bool        ValidCloseOnTakeProfitLong(int ticket);
+      bool        ValidCloseOnTakeProfitShort(int ticket); 
+      
+      bool        ValidTradeOpen();
+      
+      string      TradeLogicErrorReason(ENUM_TRADE_LOGIC_ERROR_REASON reason); 
    
 }; 
 CRecurveTrade::CRecurveTrade() {

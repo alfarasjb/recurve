@@ -1,4 +1,4 @@
-
+#include "logging.mqh"
 struct Settings {
    int      day_vol_lookback, day_peak_lookback, norm_spread_lookback, norm_spread_ma_lookback;
    int      skew_lookback, bbands_lookback, slow_bbands_lookback, bbands_num_sdev;
@@ -25,10 +25,12 @@ class CFeatureLoader {
 protected:
 private:
    string      directory_, file_name_, file_path_;
+   CLogging    *Log; 
+   
    
 public:
    CFeatureLoader(string directory_value, string file_name_value);
-   ~CFeatureLoader() {}; 
+   ~CFeatureLoader() { delete Log; }; 
 
    void     DIRECTORY(string value)    { directory_ = value; }
    
@@ -46,8 +48,8 @@ CFeatureLoader::CFeatureLoader(string directory_value,string file_name_value) :
    directory_(directory_value),
    file_name_(StringFormat("%s.ini",file_name_value)),
    file_path_(directory_+file_name_) {
-   
-      PrintFormat("Config File Path: %s", file_path_); 
+      Log   = new CLogging(true, false, false); 
+      Log.LogInformation(StringFormat("Config File Path: %s", file_path_), __FUNCTION__); 
    }
 
 
@@ -57,7 +59,7 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
    
    
    if (!FileIsExist(FILEPATH(), FILE_COMMON)) {
-      PrintFormat("%s: Configuration file not found at directory: %s", __FUNCTION__, DIRECTORY());
+      Log.LogError(StringFormat("Configuration file not found at directory: %s", DIRECTORY()), __FUNCTION__); 
       return false; 
    }
    else {
@@ -67,7 +69,7 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
    
    int handle  = FileOpen(FILEPATH(), FILE_COMMON | FILE_SHARE_READ | FILE_TXT | FILE_ANSI); 
    if (handle == INVALID_HANDLE) {
-      PrintFormat("Failed to load configuration file: %s", FILEPATH());
+      Log.LogError(StringFormat("Failed to load configuration file: %s. Code: %i", FILEPATH(), GetLastError()), __FUNCTION__); 
       return false; 
    }
    
@@ -85,8 +87,7 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
       
       
       bool parse_kv = parse_func(key, value);
-      if (!parse_kv) PrintFormat("Error Parsing. Key: %s, Value: %s", key, value); 
-      
+      if (!parse_kv) Log.LogError(StringFormat("Error Parsing. Key: %s, Value: %s", key, value), __FUNCTION__);
    }
    FileClose(handle);
    FileFlush(handle);
@@ -96,22 +97,22 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
 
 bool Parse(string key, string value) {
    if (key == "" || value == "") return true; 
-   if (key == "day_vol_lookback")               SETTINGS.day_vol_lookback     = StringToInteger(value);  
-   else if (key == "day_peak_lookback")         SETTINGS.day_peak_lookback    = StringToInteger(value); 
-   else if (key == "norm_spread_lookback")      SETTINGS.norm_spread_lookback = StringToInteger(value); 
-   else if (key == "norm_spread_ma_lookback")   SETTINGS.norm_spread_ma_lookback = StringToInteger(value);
-   else if (key == "skew_lookback")             SETTINGS.skew_lookback        = StringToInteger(value);
-   else if (key == "bbands_lookback")           SETTINGS.bbands_lookback      = StringToInteger(value);
-   else if (key == "slow_bbands_lookback")      SETTINGS.slow_bbands_lookback = StringToInteger(value);
-   else if (key == "bbands_num_sdev")           SETTINGS.bbands_num_sdev      = StringToInteger(value);
+   if (key == "day_vol_lookback")               SETTINGS.day_vol_lookback     = (int)StringToInteger(value);  
+   else if (key == "day_peak_lookback")         SETTINGS.day_peak_lookback    = (int)StringToInteger(value); 
+   else if (key == "norm_spread_lookback")      SETTINGS.norm_spread_lookback = (int)StringToInteger(value); 
+   else if (key == "norm_spread_ma_lookback")   SETTINGS.norm_spread_ma_lookback = (int)StringToInteger(value);
+   else if (key == "skew_lookback")             SETTINGS.skew_lookback        = (int)StringToInteger(value);
+   else if (key == "bbands_lookback")           SETTINGS.bbands_lookback      = (int)StringToInteger(value);
+   else if (key == "slow_bbands_lookback")      SETTINGS.slow_bbands_lookback = (int)StringToInteger(value);
+   else if (key == "bbands_num_sdev")           SETTINGS.bbands_num_sdev      = (int)StringToInteger(value);
    else if (key == "spread_threshold")          SETTINGS.spread_threshold     = StringToDouble(value);
    else if (key == "skew_threshold")            SETTINGS.skew_threshold       = StringToDouble(value);
-   else if (key == "entry_window_open")         SETTINGS.entry_window_open    = StringToInteger(value);
-   else if (key == "entry_window_close")        SETTINGS.entry_window_close   = StringToInteger(value);
-   else if (key == "trade_deadline")            SETTINGS.trade_deadline       = StringToInteger(value);
+   else if (key == "entry_window_open")         SETTINGS.entry_window_open    = (int)StringToInteger(value);
+   else if (key == "entry_window_close")        SETTINGS.entry_window_close   = (int)StringToInteger(value);
+   else if (key == "trade_deadline")            SETTINGS.trade_deadline       = (int)StringToInteger(value);
    else if (key == "catloss")                   SETTINGS.catloss              = StringToDouble(value);
    else if (key == "rpt")                       SETTINGS.rpt                  = StringToDouble(value);
-   else if (key == "min_sl_distance")           SETTINGS.min_sl_distance      = StringToInteger(value); 
+   else if (key == "min_sl_distance")           SETTINGS.min_sl_distance      = (int)StringToInteger(value); 
    else if (key == "indicator_path")            SETTINGS.indicator_path       = value;
    else if (key == "skew_filename")             SETTINGS.skew_filename        = value;
    else if (key == "spread_filename")           SETTINGS.spread_filename      = value;

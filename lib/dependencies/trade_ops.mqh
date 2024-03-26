@@ -1,10 +1,12 @@
 
 #include <RECURVE/utilities.mqh>
 #include "pool.mqh"
+#include "logging.mqh"
 class CTradeOps {
    private:
       string      TRADE_SYMBOL;
       int         TRADE_MAGIC;
+      CLogging    *Log_; 
    protected:
       
                   
@@ -62,9 +64,13 @@ class CTradeOps {
 
 };     
 
-CTradeOps::CTradeOps(void) {} 
+CTradeOps::CTradeOps(void) {
+   Log_ = new CLogging(true, false, false); 
+} 
 
-CTradeOps::~CTradeOps(void) {}
+CTradeOps::~CTradeOps(void) {
+   delete Log_; 
+}
 
 bool       CTradeOps::OP_CloseTrade(int ticket) {
    ResetLastError();
@@ -83,18 +89,16 @@ bool       CTradeOps::OP_CloseTrade(int ticket) {
       case ORDER_TYPE_BUY:
       case ORDER_TYPE_SELL:
          c  = OrderClose(PosTicket(), PosLots(), close_price, 3);
-         if (!c) PrintFormat("%s: ORDER CLOSE FAILED. TICKET: %i, ERROR: %i", 
-            __FUNCTION__, 
+         if (!c) Log_.LogError(StringFormat("Order Close Failed. Ticket: %i, Error: %i", 
             PosTicket(), 
-            GetLastError()); 
+            GetLastError()), __FUNCTION__); 
          break; 
       case ORDER_TYPE_BUY_LIMIT:
       case ORDER_TYPE_SELL_LIMIT:
          c  = OrderDelete(PosTicket()); 
-         if (!c) PrintFormat("%s: ORDER DELETE FAILED. TICKET: %i, ERROR: %i",
-            __FUNCTION__,
+         if (!c) Log_.LogError(StringFormat("Order Delete Failed. Ticket: %i, Error: %i",
             PosTicket(),
-            GetLastError());
+            GetLastError()), __FUNCTION__);
          break; 
       default:
          c = 0;
@@ -151,7 +155,7 @@ int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
    int ticket  = order_pool.Item(0); 
    
    bool c      = OP_CloseTrade(ticket); 
-   if (c)   PrintFormat("%s: Trade Closed. Ticket: %i", __FUNCTION__, ticket); 
+   if (c)   Log_.LogInformation(StringFormat("Trade Closed. Ticket: %i", ticket), __FUNCTION__); 
    int a       = order_pool.Dequeue(); 
    if (a > num_orders) {
       delete order_pool;
@@ -218,6 +222,6 @@ bool     CTradeOps::OrderIsPending(int ticket) {
 int      CTradeOps::OP_ModifySL(double sl) {
    if (sl == PosSL()) return 0; 
    int m = OrderModify(PosTicket(), PosOpenPrice(), sl, PosTP(), 0); 
-   if (!m) PrintFormat("Order Modify Error. Current SL: %f, Target SL: %f", PosSL(), sl); 
+   if (!m) Log_.LogError(StringFormat("Order Modify Error. Current SL: %f, Target SL: %f", PosSL(), sl), __FUNCTION__); 
    return m; 
 }

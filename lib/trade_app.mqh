@@ -292,6 +292,7 @@ CRecurveApp::CRecurveApp(void) {
 }
 
 CRecurveApp::~CRecurveApp(void) {
+   delete Log;
    Destroy();
 }
 
