@@ -1,5 +1,5 @@
 
-#include "dependencies/definition.mqh"
+#include "../dependencies/definition.mqh"
 
 
 class CDataPanel : public CAppDialog {

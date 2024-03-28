@@ -1,6 +1,6 @@
 
 
-#include "dependencies/definition.mqh"
+#include "../dependencies/definition.mqh"
 //--- TEMPORARY 
 
 class CReports {
@@ -42,8 +42,7 @@ void        CReports::Generate(CPool<int> *&tickets) {
    **/
    int num_tickets = tickets.Size();
    
-   CTradeOps   *ops  = new CTradeOps();
-   ops.SYMBOL(Symbol()); 
+   CTradeOps   *ops  = new CTradeOps(Symbol(), 0);
    if (num_tickets > 0) Print("NUM TICKETS: ", num_tickets); 
    for (int i = 0; i < num_tickets; i++) {
       int ticket  = tickets.Item(i); 

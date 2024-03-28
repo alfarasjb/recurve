@@ -837,7 +837,7 @@ bool           CRecurveTrade::ValidCloseOnTradeLong(int ticket) {
    string log_message   = StringFormat("Valid close on long signal. Ticket: %i", ticket); 
    
    //--- Secure floating profit and in profit returns true -> selected ticket will be closed. 
-   if (InpFloatingGain == SECURE_FLOATING_PROFIT && profit) {  
+   if (InpFloatingGain == SECURE_FLOATING_PROFIT && profit && PosOrderType() == ORDER_TYPE_BUY) {  
       Log.LogInformation(StringFormat("%s. Reason - %s", 
          log_message,
          TradeLogicErrorReason(REASON_GAIN_MGT)), __FUNCTION__); 
@@ -870,7 +870,7 @@ bool           CRecurveTrade::ValidCloseOnTradeShort(int ticket) {
    bool profit = PosProfit() > 0; 
    string log_message   = StringFormat("Valid close on short signal. Ticket: %i", ticket); 
    
-   if (InpFloatingGain == SECURE_FLOATING_PROFIT && profit) {
+   if (InpFloatingGain == SECURE_FLOATING_PROFIT && profit && PosOrderType() == ORDER_TYPE_SELL) {
       Log.LogInformation(StringFormat("%s. Reason - %s", 
          log_message, 
          TradeLogicErrorReason(REASON_GAIN_MGT)), __FUNCTION__); 
@@ -994,7 +994,7 @@ bool           CRecurveTrade::ValidCloseOnTakeProfitLong(int ticket) {
 bool           CRecurveTrade::ValidCloseOnTakeProfitShort(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
    bool profit = PosProfit() < 0; 
-   string log_message   = StringFormat("Invalid take profit short for ticket: %s", ticket); 
+   string log_message   = StringFormat("Invalid take profit short for ticket: %i", ticket); 
    
    if (PosOrderType() != ORDER_TYPE_SELL) {  
       Log.LogInformation(StringFormat("%s. Reason - %s",
@@ -1098,9 +1098,9 @@ int            CRecurveTrade::SecureBuffer() {
    double running_pl = PortfolioRunningPL();
    
    if (running_pl < buffer) {
-      Log.LogInformation(StringFormat("Secure Invalid. Running PL is below minimum threshold. Buffer: %f, Running PL: %f", 
-         buffer, 
-         running_pl), __FUNCTION__); 
+      //Log.LogInformation(StringFormat("Secure Invalid. Running PL is below minimum threshold. Buffer: %f, Running PL: %f", 
+      //   buffer, 
+      //   running_pl), __FUNCTION__); 
       return 0;
    }
    
@@ -1167,6 +1167,9 @@ double         CRecurveTrade::PortfolioRunningPL() {
    /**
       Running Open PL 
    **/
+   
+   return   UTIL_ACCOUNT_PROFIT(); 
+   /*
    int num_pos = PosTotal();
    
    double running_pl = 0;
@@ -1174,7 +1177,7 @@ double         CRecurveTrade::PortfolioRunningPL() {
       int s = OP_OrderSelectByIndex(i);
       running_pl+=PosProfit(); 
    }
-   return running_pl; 
+   return running_pl; */
 }
 
 //+------------------------------------------------------------------+
@@ -1369,7 +1372,7 @@ int            CRecurveTrade::Stage() {
    
    //-- Generates signal based on latest feature values 
    ENUM_SIGNAL signal   = Signal(LatestFeatureValues);
-   if (signal != SIGNAL_NONE) Log.LogInformation(StringFormat("Signal: %s", EnumToString(signal)), __FUNCTION__); 
+   Log.LogInformation(StringFormat("Signal: %s", EnumToString(signal)), __FUNCTION__); 
    //--- Handler for stacking etc 
    int c = ClosePositions(signal);
    
@@ -1472,9 +1475,16 @@ ENUM_SIGNAL    CRecurveTrade::Signal(FeatureValues &features) {
       //&& (last_close < last_open)
       && PreviousDayValid(LONG)) return TRADE_LONG;
    
-   
+   PrintFormat("Z: %f, ZThresh: %f, Skew: %f, Skew Thresh: %f, Last  Low: %f, Lower Band: %f, PD Long: %s", 
+      features.standard_score_value,
+      FEATURE_CONFIG.SPREAD_THRESHOLD,
+      features.skew_value,
+      FEATURE_CONFIG.SKEW_THRESHOLD,
+      features.last_candle_low,
+      features.lower_bands,
+      (string)PreviousDayValid(LONG)); 
    bool floating_loss         = InFloatingLoss(); 
-   
+   //PrintFormat("Floating Loss?: %s", (string)floating_loss); 
    //-- Additional methods to take profit or cut losses 
    switch(floating_loss) {
       case true:        return CutLoss(features); 
@@ -1520,9 +1530,15 @@ ENUM_SIGNAL    CRecurveTrade::TakeProfit(FeatureValues &features) {
          1. Floating Profit
          2. No trade signals 
    **/
-   
+   //Print("Secure: ", CONFIG.secure); 
    if (!CONFIG.secure) return SIGNAL_NONE; // THIS IS WRONG USE CONFIG.SECURE
-   
+   /*
+   PrintFormat("Z: %f, ZThresh: %f, Last High: %f, Upper Band: %f", 
+      features.standard_score_value,
+      FEATURE_CONFIG.SPREAD_THRESHOLD,
+      features.last_candle_high,
+      features.upper_bands); 
+   */
    //-- Take Profit Long Condition 
    if ((features.standard_score_value >= FEATURE_CONFIG.SPREAD_THRESHOLD) 
       && (features.last_candle_high > features.upper_bands)) 
