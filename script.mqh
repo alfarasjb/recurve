@@ -7,13 +7,15 @@
 #include <B63/CExport.mqh>
 #include <RECURVE/Loader.mqh> 
 #include "lib/forex_factory.mqh"
-#include "lib/dependencies/features.mqh"
+#include "dependencies/features.mqh"
 #include "lib/trade_app.mqh"
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
 CRecurveApp                AppDialog; 
 int OnInit() {
+   
+   
    ObjectsDeleteAll(0, -1, -1);
    
    recurve_trade.Init(); 
@@ -33,7 +35,6 @@ int OnInit() {
 
 
 void OnDeinit(const int reason) {
-   
    if (IsTesting()) {
       CExport  *export_hist   = new CExport("recurve_backtest"); 
       export_hist.ExportAccountHistory();
@@ -59,6 +60,7 @@ void OnTick() {
 MAIN LOOP 
 */
    if (IsNewCandle()) {
+      //if (TimeHour(TimeCurrent()) >= 5) return;
       int holidays = calendar_loader.LoadDatesToday(NEUTRAL); // FOR BACKTESTING 
       //if (holidays > 0) PrintFormat("Num Holidays: %i", holidays);
       if (holidays == 0) recurve_trade.Stage(); 
@@ -86,3 +88,4 @@ void OnChartEvent(const int id,         // event ID
   {
    AppDialog.ChartEvent(id, lparam, dparam, sparam);
   }
+  

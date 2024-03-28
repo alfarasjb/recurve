@@ -1,6 +1,12 @@
 
+#ifdef __MQL4__
 #include <RECURVE/CalendarDownloader.mqh> 
 #include <RECURVE/utilities.mqh>
+#endif 
+
+#ifdef __MQL5 
+
+#endif 
 #include <Controls/Defines.mqh> 
 #include <Controls/Dialog.mqh>
 #include <Controls/Button.mqh>
