@@ -34,7 +34,7 @@
 */
 
 
-#include "dependencies/definition.mqh"
+#include "../dependencies/definition.mqh"
 #include "positions.mqh"
 #include "reports.mqh"
 //#include "accounts_secondary.mqh"
@@ -198,7 +198,7 @@ class CRecurveTrade : public CTradeOps {
       string      TradeLogicErrorReason(ENUM_TRADE_LOGIC_ERROR_REASON reason); 
    
 }; 
-CRecurveTrade::CRecurveTrade() {
+CRecurveTrade::CRecurveTrade() : CTradeOps(Symbol(), InpMagic) {
    Log = new CLogging(InpTerminalMsg, InpPushNotifs, false); 
 }
 

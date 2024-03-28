@@ -1,5 +1,5 @@
 
-#include "dependencies/definition.mqh"
+#include "../dependencies/definition.mqh"
 
 // --- TEMPORARY
 
@@ -24,9 +24,7 @@ CPositions::~CPositions(void) {}
 template <typename T>
 int         CPositions::Init(void) {
 
-   CTradeOps *ops = new CTradeOps();
-   ops.SYMBOL(Symbol());
-   ops.MAGIC(InpMagic); 
+   CTradeOps *ops = new CTradeOps(Symbol(), InpMagic);
    Clear(); 
    
    int pos_total = ops.PosTotal(); 

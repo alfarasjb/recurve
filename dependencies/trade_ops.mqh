@@ -6,12 +6,12 @@ class CTradeOps {
    private:
       string      TRADE_SYMBOL;
       int         TRADE_MAGIC;
-      CLogging    *Log_; 
-   protected:
       
+   protected:
+      CLogging    *Log_; 
                   
    public: 
-      CTradeOps(); 
+      CTradeOps(string symbol, int magic); 
       ~CTradeOps();
       
       
@@ -64,7 +64,9 @@ class CTradeOps {
 
 };     
 
-CTradeOps::CTradeOps(void) {
+CTradeOps::CTradeOps(string symbol, int magic) 
+   : TRADE_SYMBOL(symbol)
+   , TRADE_MAGIC (magic) {
    Log_ = new CLogging(true, false, false); 
 } 
 
