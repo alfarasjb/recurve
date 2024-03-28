@@ -89,13 +89,3 @@ void OnChartEvent(const int id,         // event ID
   {
    AppDialog.ChartEvent(id, lparam, dparam, sparam);
   }
-  
-bool     Testing() {
-   #ifdef __MQL4__ 
-   return IsTesting(); 
-   #endif 
-   
-   #ifdef __MQL5__ 
-   return MQLInfoInteger(MQL_TESTER); 
-   #endif 
-}

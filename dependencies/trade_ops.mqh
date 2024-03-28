@@ -136,7 +136,10 @@ bool       CTradeOps::OP_CloseTrade(int ticket) {
          #ifdef __MQL4__ 
          c  = OrderClose(PosTicket(), PosLots(), close_price, 3);
          #endif 
+         
+         #ifdef __MQL5__ 
          c  = Trade.PositionClose(ticket);
+         #endif
          if (!c) Log_.LogError(StringFormat("Order Close Failed. Ticket: %i, Error: %i", 
             PosTicket(), 
             GetLastError()), __FUNCTION__); 

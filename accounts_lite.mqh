@@ -199,11 +199,13 @@ int            CAccountsLite::InitializeActiveTickets() {
       t  = OP_OrderSelectByIndex(i); 
       active_ticket  = PosTicket(); 
       //--- Skips tickets already stored in the order pool 
+      
       if (tickets_active_.Search(active_ticket)) continue; 
       tickets_active_.Append(active_ticket); 
    }
    int active_size   = tickets_active_.Size(); 
    Log_.LogInformation(StringFormat("%i trades active.", active_size), __FUNCTION__); 
+   
    //--- Registers date of initialization 
    datetime upd = Register();
    return active_size; 
@@ -246,6 +248,7 @@ int            CAccountsLite::InitializeClosedToday() {
       AddClosedPLToday(PosProfit()); 
    }
    int num_closed_today = tickets_closed_today_.Size(); 
+   
    //--- Registers date of initialization. 
    datetime upd = Register();
    
