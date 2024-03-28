@@ -75,9 +75,15 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
    
    FileSeek(handle, 0, SEEK_SET); 
    while (!FileIsEnding(handle)) {
-      
+      #ifdef __MQL4__
       string   filestring     = StringTrimLeft(StringTrimRight(FileReadString(handle))); 
+      #endif 
       
+      #ifdef __MQL5__ 
+      string   filestring     = FileReadString(handle);
+      StringTrimLeft(filestring); 
+      StringTrimRight(filestring); 
+      #endif 
       int      split          = StringSplit(filestring, '=', result);  
       
       string key = "", value = "";

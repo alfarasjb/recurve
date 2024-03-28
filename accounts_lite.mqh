@@ -21,8 +21,8 @@ private:
 
 public: 
    
-      CAccountsLite();
-      ~CAccountsLite(); 
+            CAccountsLite();
+            ~CAccountsLite(); 
    
       
             void        SetDeposit(double value)            { deposit_ = value; }
@@ -33,12 +33,12 @@ public:
             
             void        AddClosedPLToday(double value)      { closed_pl_today_+=value; }
             
-      const double      AccountDeposit()  const       { return deposit_; }
-      const double      AccountStartBalToday()  const { return start_bal_today_; }
-      const double      AccountClosedPLToday()  const { return closed_pl_today_; }
-      const double      AccountPctGainToday()   const { return pct_gain_today_; }
+      const double      AccountDeposit()  const             { return deposit_; }
+      const double      AccountStartBalToday()  const       { return start_bal_today_; }
+      const double      AccountClosedPLToday()  const       { return closed_pl_today_; }
+      const double      AccountPctGainToday()   const       { return pct_gain_today_; }
       
-      const datetime    LastUpdate() const            { return last_update_; }
+      const datetime    LastUpdate() const                  { return last_update_; }
       
             
             //--- Initialization
@@ -116,14 +116,17 @@ void           CAccountsLite::Track() {
       Solution is currently temporary. 
    */
    if (IsNewDay()) {
+      //--- Reinitalizes history and active positions if new day is detected. 
       Init(); 
       return; 
    }
    
+   //--- Returns if pool state remains the same
    if (!PoolStateChanged()) return; 
    
    CPoolGeneric<int> *current = new CPoolGeneric<int>(); 
    
+   //--- Populate current. Stores current active tickets in order pool.
    int s, curr_ticket;
    for (int i = 0; i < PosTotal(); i++) {
       s = OP_OrderSelectByIndex(i);
@@ -134,6 +137,15 @@ void           CAccountsLite::Track() {
    current.Sort();
    tickets_active_.Sort(); 
    
+   
+   /*
+      Compares contents of stored tickets with current order pool. 
+      
+      Stored tickets not found in current are considered closed trades, 
+      and are adde to tickets_closed_ 
+      
+      Sequentially removes tickets from tickets_active
+   */
    int first_ticket;
    while(tickets_active_.Size() > 0) {
       first_ticket   = tickets_active_.First(); 
@@ -141,13 +153,25 @@ void           CAccountsLite::Track() {
       tickets_active_.Remove(first_ticket); 
    }
    
+   //--- Extracts contents of current to be used for repopulating tickets_active
    int current_extracted[]; 
+   int num_extracted = current.Extract(current_extracted); 
+   
+   tickets_active_.Create(current_extracted); 
+   
 }
 
 void           CAccountsLite::AppendClosedTrade(int ticket) {
+   /*
+      Method for appending to tickets closed. 
+      
+      Triggered when order pool has changed. 
+      
+      Used to recalculate daily closed p/l and gain, and for risk management.
+   */
    tickets_closed_today_.Append(ticket);
    int s = OP_HistorySelectByTicket(ticket);
-   
+   //--- Adds to closed PL and recalculates gain 
    AddClosedPLToday(PosProfit());
    double gain_today = AccountClosedPLToday() / AccountStartBalToday() * 100;
    SetPctGainToday(gain_today); 
@@ -174,11 +198,15 @@ int            CAccountsLite::InitializeActiveTickets() {
    for (int i = 0; i < PosTotal(); i++) {
       t  = OP_OrderSelectByIndex(i); 
       active_ticket  = PosTicket(); 
+      //--- Skips tickets already stored in the order pool 
+      
       if (tickets_active_.Search(active_ticket)) continue; 
       tickets_active_.Append(active_ticket); 
    }
    int active_size   = tickets_active_.Size(); 
    Log_.LogInformation(StringFormat("%i trades active.", active_size), __FUNCTION__); 
+   
+   //--- Registers date of initialization 
    datetime upd = Register();
    return active_size; 
 }
@@ -220,6 +248,9 @@ int            CAccountsLite::InitializeClosedToday() {
       AddClosedPLToday(PosProfit()); 
    }
    int num_closed_today = tickets_closed_today_.Size(); 
+   
+   //--- Registers date of initialization. 
+   
    datetime upd = Register();
    
    //--- Sets start balance today as closed PL today - current account balance
@@ -286,25 +317,15 @@ datetime       CAccountsLite::Register() {
    return LastUpdate();
 }
 
-int            CAccountsLite::LastTicketInOrderPool() { 
+int            CAccountsLite::LastTicketInOrderPool() {
+   //--- Returns last active ticket in order pool 
+   
    if (PosTotal() == 0) return 0; 
    int s = OP_OrderSelectByIndex(PosTotal() - 1); 
    return PosTicket(); 
 }
 
-datetime       CAccountsLite::GetDate(datetime target) {
-   return StringToTime(TimeToString(target, TIME_DATE)); 
-}
-
-bool           CAccountsLite::IsNewDay() {
-   return (GetDate(TimeCurrent() != GetDate(LastUpdate()))); 
-
-}
-
-datetime       CAccountsLite::DateToday() {
-   return GetDate(TimeCurrent()); 
-}
-
-bool           CAccountsLite::TradeDateToday(datetime target) {
-   return GetDate(target) == GetDate(TimeCurrent()); 
-}
+datetime       CAccountsLite::GetDate(datetime target)         { return StringToTime(TimeToString(target, TIME_DATE)); }
+bool           CAccountsLite::IsNewDay()                       { return (GetDate(TimeCurrent()) != GetDate(LastUpdate())); }
+datetime       CAccountsLite::DateToday()                      { return GetDate(TimeCurrent()); }
+bool           CAccountsLite::TradeDateToday(datetime target)  { return GetDate(target) == GetDate(TimeCurrent()); }

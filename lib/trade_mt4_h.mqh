@@ -473,7 +473,7 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    
    //-- Returns if interval is invalid: selected timeframe does not match input timeframe. 
    if (!ValidInterval()) {
-      string error_message = StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", TimeMinute(TimeCurrent()));
+      string error_message = StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", UTIL_TIME_MINUTE(TimeCurrent()));
       Log.LogInformation(error_message, __FUNCTION__); 
       //error(error_message);
       return 0;
@@ -681,12 +681,12 @@ bool           CRecurveTrade::ValidFloatingLoss() {
    return false; 
 }
 
-bool           CRecurveTrade::Breakeven() {
+bool           CRecurveTrade::Breakeven(int ticket) {
    /**
       Sets Breakeven if position floating profit is greater than 
       or equal to required profit threshold. (Input)
    **/
-   
+   int s = OP_OrderSelectByTicket(ticket); 
    //--- Calculates minimum gain to set BE. 
    if (InpTradeMgt != MODE_BREAKEVEN) return false; 
    double balance = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
@@ -697,7 +697,7 @@ bool           CRecurveTrade::Breakeven() {
    //-- Returns false if already set as BE
    if (PosSL() == PosOpenPrice()) return false;
    //--- Modifies SL 
-   bool m = OP_ModifySL(PosOpenPrice()); 
+   bool m = OP_ModifySL(ticket, PosOpenPrice()); 
    return m;
 }
 
@@ -754,7 +754,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
          If Valid Stack: ignore 
          Else: continue 
       **/
-      if (Breakeven()) Log.LogInformation(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
+      if (Breakeven(ticket)) Log.LogInformation(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
  
  
       switch(reason) {
@@ -1087,7 +1087,7 @@ int            CRecurveTrade::SecureBuffer() {
    **/
    if (PosTotal() == 0) return 0; 
    
-   int current_hour = TimeHour(TimeCurrent()); 
+   int current_hour = UTIL_TIME_HOUR(TimeCurrent()); 
    if (current_hour > InpBufferDeadline) {
       //Log.LogInformation(StringFormat("Reached Buffer Deadline. Current: %i, Deadline: %i", current_hour, InpBufferDeadline), __FUNCTION__); 
       return 0; 
@@ -1168,7 +1168,7 @@ double         CRecurveTrade::PortfolioRunningPL() {
       Running Open PL 
    **/
    
-   return   UTIL_ACCOUNT_PROFIT(); 
+   return   UTIL_ACCOUNT_PROFIT();
    /*
    int num_pos = PosTotal();
    
@@ -1290,7 +1290,7 @@ bool           CRecurveTrade::ValidInterval() {
    
    //-- Intervals are automatically valid if config is overridden. 
    if (InpIgnoreIntervals) return true; 
-   int minute  = TimeMinute(TimeCurrent());
+   int minute  = UTIL_TIME_MINUTE(TimeCurrent());
    
    int size    = INTERVALS_.Size(); 
    
@@ -1307,7 +1307,7 @@ bool           CRecurveTrade::ValidInterval() {
 
 bool           CRecurveTrade::EndOfDay() {
    //-- Determines end of trading window 
-   int hour = TimeHour(TimeCurrent());
+   int hour = UTIL_TIME_HOUR(TimeCurrent());
    if (hour >= FEATURE_CONFIG.TRADE_DEADLINE) return true;
    return false; 
    
@@ -1337,7 +1337,7 @@ bool           CRecurveTrade::ValidDayVolatility() {
 
 bool           CRecurveTrade::DayOfWeekInTradingDays() {
    if (InpIgnoreDayOfWeek) return true; 
-   int current_day_of_week    = DayOfWeek() - 1; 
+   int current_day_of_week    = UTIL_TIME_DAY_OF_WEEK(TimeCurrent()) - 1; 
    if (CONFIG.TRADING_DAYS.Search(current_day_of_week)) return true; 
    return false; 
 }
@@ -1398,8 +1398,9 @@ bool           CRecurveTrade::ValidTradeWindow() {
    /**
       Checks if entry window is open
    **/
-   int hour             = TimeHour(TimeCurrent()); 
-   int minute           = TimeMinute(TimeCurrent()); 
+   
+   int hour             = UTIL_TIME_HOUR(TimeCurrent()); 
+   int minute           = UTIL_TIME_MINUTE(TimeCurrent()); 
    int ENTRY_HOUR       = FEATURE_CONFIG.ENTRY_WINDOW_OPEN; // convert to input 
    int EXIT_HOUR        = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE; // convert to input 
    
@@ -1414,7 +1415,7 @@ bool           CRecurveTrade::ValidRecoveryWindow() {
       Checks if recovery window is open. 
    **/
    
-   int hour             = TimeHour(TimeCurrent());
+   int hour             = UTIL_TIME_HOUR(TimeCurrent());
    int RECOVERY_ENTRY   = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE;
    int RECOVERY_EXIT    = FEATURE_CONFIG.TRADE_DEADLINE; 
    
@@ -1634,6 +1635,7 @@ double         CRecurveTrade::SKEW(int shift=1) {
    
 }
 
+#ifdef __MQL4__ 
 double         CRecurveTrade::BBANDS(int mode, int num_sd = 2, int shift =1) {
    /**
       Bollinger Bands for measuring volatility, and filtering entries. 
@@ -1648,6 +1650,7 @@ double         CRecurveTrade::BBANDS(int mode, int num_sd = 2, int shift =1) {
       shift    // shift
       );
 }
+
 
 double         CRecurveTrade::BBANDS_SLOW(int mode,int num_sd=2,int shift=1) {
    /**
@@ -1664,10 +1667,55 @@ double         CRecurveTrade::BBANDS_SLOW(int mode,int num_sd=2,int shift=1) {
       );
 
 }
+#endif 
+
+#ifdef __MQL5__ 
+double         CRecurveTrade::BBANDS(ENUM_BBANDS_MODE mode, int num_sd = 2, int shift = 1) {
+   int handle = iBands(
+      NULL, 
+      InpRPTimeframe, 
+      FEATURE_CONFIG.BBANDS_LOOKBACK, 
+      shift, 
+      num_sd, 
+      PRICE_CLOSE 
+      );
+   
+   return BBANDS_VALUE(handle, mode); 
+} 
+
+
+double         CRecurveTrade::BBANDS_SLOW(ENUM_BBANDS_MODE mode, int num_sd=2,int shift=1) {
+   int handle = iBands( 
+      NULL,
+      InpRPTimeframe, 
+      FEATURE_CONFIG.BBANDS_SLOW_LOOKBACK, 
+      shift, 
+      num_sd, 
+      PRICE_CLOSE); 
+      
+   return BBANDS_VALUE(handle, mode); 
+}
+
+
+double         CRecurveTrade::BBANDS_VALUE(int handle,ENUM_BBANDS_MODE mode) {
+   double buffer[]; 
+   switch(mode) {
+      case MODE_UPPER:
+         CopyBuffer(handle, 1, 0, 1, buffer);
+         return buffer[0]; 
+      case MODE_LOWER:
+         CopyBuffer(handle, 2, 0, 1, buffer);
+         return buffer[0]; 
+   }
+   return 0; 
+}
+#endif 
 
 string         CRecurveTrade::indicator_path(string indicator_name)     { return StringFormat("%s%s", FEATURE_CONFIG.INDICATOR_PATH, indicator_name); }
 double         CRecurveTrade::DAY_VOL()           { return DAILY_VOLATILITY(MODE_STD_DEV); }
 double         CRecurveTrade::DAY_PEAK_VOL()      { return DAILY_VOLATILITY(MODE_ROLLING_MAX_STD_DEV); }
+
+
 double         CRecurveTrade::UPPER_BANDS()       { return BBANDS(MODE_UPPER); }
 double         CRecurveTrade::LOWER_BANDS()       { return BBANDS(MODE_LOWER); }
 double         CRecurveTrade::EXTREME_UPPER()     { return BBANDS(MODE_UPPER, 3); }
@@ -1678,3 +1726,28 @@ double         CRecurveTrade::PD_UPPER_BANDS()    { return BBANDS(MODE_UPPER, 2,
 double         CRecurveTrade::PD_LOWER_BANDS()    { return BBANDS(MODE_LOWER, 2, 2); }
 
 
+#ifdef __MQL5__ 
+//--- TEMPORARY 
+//--- Buffers: 0-Base, 1-Upper, 2-Lower
+/*
+double CopyBufferMQL4(int handle,int index,int shift)
+  {
+   double buf[];
+   switch(index)
+     {
+      case 0: if(CopyBuffer(handle,0,shift,1,buf)>0)
+         return(buf[0]); break;
+      case 1: if(CopyBuffer(handle,1,shift,1,buf)>0)
+         return(buf[0]); break;
+      case 2: if(CopyBuffer(handle,2,shift,1,buf)>0)
+         return(buf[0]); break;
+      case 3: if(CopyBuffer(handle,3,shift,1,buf)>0)
+         return(buf[0]); break;
+      case 4: if(CopyBuffer(handle,4,shift,1,buf)>0)
+         return(buf[0]); break;
+      default: break;
+     }
+   return(EMPTY_VALUE);
+  }
+*/
+#endif 

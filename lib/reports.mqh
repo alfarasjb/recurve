@@ -30,8 +30,23 @@ public:
 };
 
 CReports::CReports(CPool<int> *&tickets) {
-   const string trail = IsTesting() ? "backtest" : "live";
+   bool testing; 
+   #ifdef __MQL4__ 
+   testing = IsTesting(); 
+   #endif 
+   testing = MQLInfoInteger(MQL_TESTER); 
+   #ifdef __MQL5__ 
+   
+   #endif 
+   const string trail = testing ? "backtest" : "live";
+   #ifdef __MQL4__ 
    path_ = StringConcatenate(REPORTS_DIRECTORY, Symbol(), "_report_", trail, ".csv"); 
+   #endif 
+   
+   #ifdef __MQL5__ 
+   path_ = REPORTS_DIRECTORY; 
+   StringConcatenate(path_, Symbol(), "_report_", trail, ".csv");
+   #endif 
    Generate(tickets); 
 }
 
