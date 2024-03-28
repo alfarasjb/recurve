@@ -689,16 +689,37 @@ bool           CRecurveTrade::Breakeven(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
    //--- Calculates minimum gain to set BE. 
    if (InpTradeMgt != MODE_BREAKEVEN) return false; 
+   
+   bool feature_valid = ValidFeatureBreakeven(ticket); 
    double balance = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
    double gain    = balance * (InpBEThreshold / 100); 
+   
    //--- Returns false if current profit is below required threshold. 
-   if (PosProfit() < gain) return false; 
+   //---- Allows breakeven for trades that exceeded gain threshold, or feature validity with bbands
+   if (PosProfit() < gain && !feature_valid) return false; 
    
    //-- Returns false if already set as BE
-   if (PosSL() == PosOpenPrice()) return false;
+   if (UTIL_TO_PRICE(PosSL()) == UTIL_TO_PRICE(PosOpenPrice())) return false;
    //--- Modifies SL 
    bool m = OP_ModifySL(ticket, PosOpenPrice()); 
    return m;
+}
+
+bool           CRecurveTrade::ValidFeatureBreakeven(int ticket) {
+   /**
+      Determines criteria for setting breakeven
+   **/
+   int s = OP_OrderSelectByTicket(ticket); 
+   
+   switch(PosOrderType()) {
+      case ORDER_TYPE_BUY:    
+         if (UTIL_CANDLE_HIGH() > FEATURE.upper_bands) return true;
+         break;
+      case ORDER_TYPE_SELL: 
+         if (UTIL_CANDLE_LOW() < FEATURE.lower_bands) return true; 
+         break;
+   }
+   return false;
 }
 
 bool           CRecurveTrade::ValidTradeToday() {
@@ -781,11 +802,7 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
       CReports *reports = GenerateReports(); 
       reports.Export(reason); 
       delete reports; 
-      
       Log.LogInformation(StringFormat("Batch Close. Reason: %s", EnumToString(reason)), __FUNCTION__, false, true); 
-      //--- UPDATE ACCOUNTS LINKED LIST HERE
-      //int updated = Accounts_.AddClosedPositions(extracted); 
-      //PrintFormat("UPDATE: %i", updated); 
    }
    
    
@@ -812,12 +829,8 @@ string         CRecurveTrade::TradeLogicErrorReason(ENUM_TRADE_LOGIC_ERROR_REASO
    }
    return "";
 }
-
-
 bool           CRecurveTrade::ValidCloseOnTradeLong(int ticket) {
    //--- Test Case: USDSGD, USDCAD 3/26/2024
-   int s = OP_OrderSelectByTicket(ticket);   
-   bool profit = PosProfit() > 0; 
    
    /*
       Return: 
@@ -834,64 +847,78 @@ bool           CRecurveTrade::ValidCloseOnTradeLong(int ticket) {
          - true -> close on opposite trade (closes position on opposite signal)
          - true -> close on martingale (essentially cut losses and enter again)
    */
+   int s = OP_OrderSelectByTicket(ticket);
+   bool profit = PosProfit() > 0;
    string log_message   = StringFormat("Valid close on long signal. Ticket: %i", ticket); 
    
-   //--- Secure floating profit and in profit returns true -> selected ticket will be closed. 
-   if (InpFloatingGain == SECURE_FLOATING_PROFIT && profit && PosOrderType() == ORDER_TYPE_BUY) {  
-      Log.LogInformation(StringFormat("%s. Reason - %s", 
-         log_message,
-         TradeLogicErrorReason(REASON_GAIN_MGT)), __FUNCTION__); 
-      return true; // break 
-   } 
-   //--- Set as cut floating loss and in drawdown returns true -> selected ticket will be closed
-   if (InpFloatingDD == CUT_FLOATING_LOSS && !profit && ValidInterval()) {
-      Log.LogInformation(StringFormat("%s. Reason - %s", 
-         log_message,
-         TradeLogicErrorReason(REASON_DD_MGT)), __FUNCTION__);
-      return true; // break
-   }
-   //--- Current trade is a sell, incoming LONG signal. Returns true only on valid interval -> selected tic
-   if (PosOrderType() == ORDER_TYPE_SELL && ValidInterval()) {
-      Log.LogInformation(StringFormat("%s. Reason - %s", 
-         log_message,
-         TradeLogicErrorReason(REASON_INVERT)), __FUNCTION__); 
-      return true; // break
-   }
-   Log.LogInformation(StringFormat("Invalid close on long signal. Gain Mgt: %s, DD Mgt: %s", 
-      EnumToString(InpFloatingGain), 
-      EnumToString(InpFloatingDD)), __FUNCTION__); 
+   /*
+      Stack on floating loss 
+      1. Same order
+      2. Floating loss 
+      3. Valid Interval - since reference is signal
+   */
+   if (PosOrderType() == ORDER_TYPE_BUY && ValidInterval()) {
+      if (profit && InpFloatingGain == SECURE_FLOATING_PROFIT) {
+         Log.LogInformation(StringFormat("%s. Reason - %s", 
+            log_message,
+            TradeLogicErrorReason(REASON_GAIN_MGT)), __FUNCTION__);
+         return true; 
+      }
       
+      if (!profit && InpFloatingDD == CUT_FLOATING_LOSS) {
+         Log.LogInformation(StringFormat("%s. Reason - %s", 
+            log_message,
+            TradeLogicErrorReason(REASON_DD_MGT)), __FUNCTION__);
+         return true; 
+      }
+   }
+   /*
+      Invert 
+      1. Opposite Order
+      2. Floating loss 
+      3. Disregard interval 
+   */
+   if (PosOrderType() == ORDER_TYPE_SELL) {
+      if ((profit && InpFloatingGain == SECURE_FLOATING_PROFIT) 
+         || (!profit && InpFloatingDD == CUT_FLOATING_LOSS)) {
+         Log.LogInformation(StringFormat("%s. Reason - %s", 
+            log_message,
+            TradeLogicErrorReason(REASON_INVERT)), __FUNCTION__);
+         return true;
+      }  
+   }
+   Log.LogInformation("Invalid close on long signal.", __FUNCTION__); 
    return false; 
 }
-
 
 bool           CRecurveTrade::ValidCloseOnTradeShort(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
    bool profit = PosProfit() > 0; 
-   string log_message   = StringFormat("Valid close on short signal. Ticket: %i", ticket); 
+   string log_message   = StringFormat("Valid close on long signal. Ticket: %i", ticket); 
    
-   if (InpFloatingGain == SECURE_FLOATING_PROFIT && profit && PosOrderType() == ORDER_TYPE_SELL) {
-      Log.LogInformation(StringFormat("%s. Reason - %s", 
-         log_message, 
-         TradeLogicErrorReason(REASON_GAIN_MGT)), __FUNCTION__); 
-      return true; 
+   if (PosOrderType() == ORDER_TYPE_SELL && ValidInterval()) {
+      if (profit && InpFloatingGain == SECURE_FLOATING_PROFIT) {
+         Log.LogInformation(StringFormat("%s. Reason - %s",   
+            log_message,
+            TradeLogicErrorReason(REASON_GAIN_MGT)), __FUNCTION__); 
+         return true; 
+      }
+      if (!profit && InpFloatingDD == CUT_FLOATING_LOSS) {
+         Log.LogInformation(StringFormat("%s. Reason - %s",
+            log_message,
+            TradeLogicErrorReason(REASON_DD_MGT)), __FUNCTION__); 
+         return true; 
+      }
    }
-   if (InpFloatingDD == CUT_FLOATING_LOSS && !profit && ValidInterval()) {
-      Log.LogInformation(StringFormat("%s. Reason - %s", 
-         log_message,
-         TradeLogicErrorReason(REASON_DD_MGT)), __FUNCTION__); 
-      return true; 
+   if (PosOrderType() == ORDER_TYPE_BUY) {
+      if ((profit && InpFloatingGain == SECURE_FLOATING_PROFIT) 
+         || (!profit && InpFloatingDD == CUT_FLOATING_LOSS)) {
+         Log.LogInformation(StringFormat("%s. Reason - %s",
+            log_message,
+            TradeLogicErrorReason(REASON_INVERT)), __FUNCTION__); 
+      }
    }
-   if (PosOrderType() == ORDER_TYPE_BUY && ValidInterval()) {
-      Log.LogInformation(StringFormat("%s. Reason - %s", 
-         log_message,
-         TradeLogicErrorReason(REASON_INVERT)), __FUNCTION__); 
-      return true; 
-   }
-   Log.LogInformation(StringFormat("Invalid close on short signal. Gain Mgt: %s, DD Mgt: %s", 
-      EnumToString(InpFloatingGain),
-      EnumToString(InpFloatingDD)), __FUNCTION__); 
-   
+   Log.LogInformation("Invalid close on short signal.", __FUNCTION__); 
    return false; 
 }
 
@@ -927,12 +954,13 @@ bool           CRecurveTrade::ValidCloseOnCutLong(int ticket) {
          TradeLogicErrorReason(REASON_ORDER_IN_PROFIT)), __FUNCTION__); 
       return false;
    }
+   /*
    if (InpFloatingDD != CUT_FLOATING_LOSS) {
       Log.LogInformation(StringFormat("%s. Reason - %s", 
          log_message, 
          TradeLogicErrorReason(REASON_DD_MGT)), __FUNCTION__); 
       return false;
-   }
+   }*/
    return true; 
     
 }
@@ -955,12 +983,13 @@ bool           CRecurveTrade::ValidCloseOnCutShort(int ticket) {
          TradeLogicErrorReason(REASON_ORDER_IN_PROFIT)), __FUNCTION__); 
       return false; 
    }
+   /*
    if (InpFloatingDD != CUT_FLOATING_LOSS) {
       Log.LogInformation(StringFormat("%s. Reason - %s", 
          log_message, 
          TradeLogicErrorReason(REASON_DD_MGT)), __FUNCTION__); 
       return false;
-   }
+   }*/
    return true; 
 
 }
@@ -1169,15 +1198,7 @@ double         CRecurveTrade::PortfolioRunningPL() {
    **/
    
    return   UTIL_ACCOUNT_PROFIT();
-   /*
-   int num_pos = PosTotal();
    
-   double running_pl = 0;
-   for (int i = 0; i < num_pos; i++) {
-      int s = OP_OrderSelectByIndex(i);
-      running_pl+=PosProfit(); 
-   }
-   return running_pl; */
 }
 
 //+------------------------------------------------------------------+
@@ -1475,7 +1496,7 @@ ENUM_SIGNAL    CRecurveTrade::Signal(FeatureValues &features) {
       && (features.last_candle_low < features.lower_bands)
       //&& (last_close < last_open)
       && PreviousDayValid(LONG)) return TRADE_LONG;
-   
+   /*
    PrintFormat("Z: %f, ZThresh: %f, Skew: %f, Skew Thresh: %f, Last  Low: %f, Lower Band: %f, PD Long: %s", 
       features.standard_score_value,
       FEATURE_CONFIG.SPREAD_THRESHOLD,
@@ -1483,7 +1504,7 @@ ENUM_SIGNAL    CRecurveTrade::Signal(FeatureValues &features) {
       FEATURE_CONFIG.SKEW_THRESHOLD,
       features.last_candle_low,
       features.lower_bands,
-      (string)PreviousDayValid(LONG)); 
+      (string)PreviousDayValid(LONG)); */
    bool floating_loss         = InFloatingLoss(); 
    //PrintFormat("Floating Loss?: %s", (string)floating_loss); 
    //-- Additional methods to take profit or cut losses 
@@ -1725,29 +1746,3 @@ double         CRecurveTrade::SLOW_LOWER()        { return BBANDS_SLOW(MODE_LOWE
 double         CRecurveTrade::PD_UPPER_BANDS()    { return BBANDS(MODE_UPPER, 2, 2); }
 double         CRecurveTrade::PD_LOWER_BANDS()    { return BBANDS(MODE_LOWER, 2, 2); }
 
-
-#ifdef __MQL5__ 
-//--- TEMPORARY 
-//--- Buffers: 0-Base, 1-Upper, 2-Lower
-/*
-double CopyBufferMQL4(int handle,int index,int shift)
-  {
-   double buf[];
-   switch(index)
-     {
-      case 0: if(CopyBuffer(handle,0,shift,1,buf)>0)
-         return(buf[0]); break;
-      case 1: if(CopyBuffer(handle,1,shift,1,buf)>0)
-         return(buf[0]); break;
-      case 2: if(CopyBuffer(handle,2,shift,1,buf)>0)
-         return(buf[0]); break;
-      case 3: if(CopyBuffer(handle,3,shift,1,buf)>0)
-         return(buf[0]); break;
-      case 4: if(CopyBuffer(handle,4,shift,1,buf)>0)
-         return(buf[0]); break;
-      default: break;
-     }
-   return(EMPTY_VALUE);
-  }
-*/
-#endif 

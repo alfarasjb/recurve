@@ -202,7 +202,9 @@ class CRecurveTrade : public CTradeOps {
       bool        ValidCloseOnTakeProfitLong(int ticket);
       bool        ValidCloseOnTakeProfitShort(int ticket); 
       
+      
       bool        ValidTradeOpen();
+      bool        ValidFeatureBreakeven(int ticket); 
       
       string      TradeLogicErrorReason(ENUM_TRADE_LOGIC_ERROR_REASON reason); 
       
