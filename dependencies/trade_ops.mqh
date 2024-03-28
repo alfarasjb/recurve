@@ -136,6 +136,7 @@ bool       CTradeOps::OP_CloseTrade(int ticket) {
          #ifdef __MQL4__ 
          c  = OrderClose(PosTicket(), PosLots(), close_price, 3);
          #endif 
+         
          #ifdef __MQL5__ 
          c  = Trade.PositionClose(ticket);
          #endif

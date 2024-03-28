@@ -250,7 +250,6 @@ int            CAccountsLite::InitializeClosedToday() {
    int num_closed_today = tickets_closed_today_.Size(); 
    
    //--- Registers date of initialization. 
-   
    datetime upd = Register();
    
    //--- Sets start balance today as closed PL today - current account balance
@@ -319,7 +318,6 @@ datetime       CAccountsLite::Register() {
 
 int            CAccountsLite::LastTicketInOrderPool() {
    //--- Returns last active ticket in order pool 
-   
    if (PosTotal() == 0) return 0; 
    int s = OP_OrderSelectByIndex(PosTotal() - 1); 
    return PosTicket(); 

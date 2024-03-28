@@ -89,4 +89,3 @@ void OnChartEvent(const int id,         // event ID
   {
    AppDialog.ChartEvent(id, lparam, dparam, sparam);
   }
-  
