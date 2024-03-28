@@ -73,8 +73,14 @@ int         CNewsEvents::ClearHandle(void){
 }
 
 int         CNewsEvents::FetchData(void){
-
+   
+   #ifdef __MQL4__ 
    if (IsTesting()) return 0;
+   #endif 
+   
+   #ifdef __MQL5__ 
+   if (MQLInfoInteger(MQL_TESTER)) return 0; 
+   #endif 
 
    ResetLastError();
    ClearArray(NEWS_CURRENT);

@@ -2,6 +2,11 @@
 #include <RECURVE/utilities.mqh>
 #include "pool.mqh"
 #include "logging.mqh"
+
+#ifdef __MQL5__ 
+#include <Trade/Trade.mqh>
+CTrade Trade; 
+#endif 
 class CTradeOps {
    private:
       string      TRADE_SYMBOL;
@@ -21,7 +26,7 @@ class CTradeOps {
                   string            SYMBOL(void) const      { return TRADE_SYMBOL; }
                   int               MAGIC(void) const       { return TRADE_MAGIC; }
                   //--- WRAPPERS
-                  
+                  #ifdef __MQL4__
                   double            PosLots(void) const     { return OrderLots(); }
                   string            PosSymbol(void) const   { return OrderSymbol(); }
                   int               PosMagic(void) const    { return OrderMagicNumber(); }
@@ -40,18 +45,53 @@ class CTradeOps {
                   
                   int               PosTotal(void) const    { return OrdersTotal(); }
                   int               PosTicket(void) const   { return OrderTicket(); }
+                  #endif 
                   
+                  #ifdef __MQL5__ 
+                  double            PosLots() const         { return PositionGetDouble(POSITION_VOLUME); } 
+                  string            PosSymbol() const       { return PositionGetString(POSITION_SYMBOL); }
+                  int               PosMagic() const        { return (int)PositionGetInteger(POSITION_MAGIC); }
+                  datetime          PosOpenTime() const     { return (datetime)PositionGetInteger(POSITION_TIME); }
+                  datetime          PosCloseTime() const    { return 0; } // temporary
+                  double            PosOpenPrice() const    { return PositionGetDouble(POSITION_PRICE_OPEN); }
+                  double            PosClosePrice()          { return 0; }
+                  double            PosProfit() const       { return PositionGetDouble(POSITION_PROFIT); }
+                  ENUM_ORDER_TYPE   PosOrderType() const    { return (ENUM_ORDER_TYPE)PositionGetInteger(POSITION_TYPE); }
+                  double            PosSL() const           { return PositionGetDouble(POSITION_SL); }
+                  double            PosTP() const           { return PositionGetDouble(POSITION_TP); }
+                  string            PosComment() const      { return "";}
+                  int               OrdersHistTotal() const { return HistoryOrdersTotal(); }
+                  int               DealsHistTotal() const  { return HistoryDealsTotal(); }
+                  
+                  int               PosTotal() const        { return PositionsTotal(); }
+                  int               PosTicket() const       { return (int)PositionGetInteger(POSITION_TICKET); }
+                  
+                  #endif 
+      
+      #ifdef __MQL4__             
       virtual     int               OP_OrderSelectByTicket(int ticket) const     { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_TRADES); }
       virtual     int               OP_OrderSelectByIndex(int index) const       { return OrderSelect(index, SELECT_BY_POS, MODE_TRADES); }
       virtual     int               OP_HistorySelectByIndex(int index) const     { return OrderSelect(index, SELECT_BY_POS, MODE_HISTORY); }
       virtual     int               OP_HistorySelectByTicket(int ticket) const   { return OrderSelect(ticket, SELECT_BY_TICKET, MODE_HISTORY); }
-                  
+      #endif 
+      
+      #ifdef __MQL5__ 
+      virtual     int               OP_OrderSelectByTicket(int ticket) const     { return PositionSelectByTicket(ticket); } 
+      virtual     int               OP_OrderSelectByIndex(int index) const       { return PositionSelectByTicket(PositionGetTicket(index)); }
+      //--- TODO 
+      virtual     int               OP_HistorySelectByIndex(int index) const     { return 0; }
+      virtual     int               OP_HistorySelectByTicket(int ticket) const   { return 0; }
+      
+      #endif 
       //--- TRADE OPERATIONS
       virtual     int      OP_OrdersCloseAll(); 
       virtual     bool     OP_CloseTrade(int ticket);
       virtual     int      OP_OrderOpen(string symbol, ENUM_ORDER_TYPE order_type, double volume, double price, double sl, double tp, string comment, datetime expiration = 0); 
       virtual     bool     OP_TradeMatch(int index);
-      virtual     int      OP_ModifySL(double sl); 
+     
+      virtual     int      OP_ModifySL(int ticket, double sl); 
+     
+      
       virtual     int      OP_ModifyTP(double tp);
       virtual     int      OP_OrdersCloseBatch(int &orders[]); 
       virtual     int      OP_OrdersBreakevenBatch(int &orders[]); 
@@ -68,6 +108,9 @@ CTradeOps::CTradeOps(string symbol, int magic)
    : TRADE_SYMBOL(symbol)
    , TRADE_MAGIC (magic) {
    Log_ = new CLogging(true, false, false); 
+   #ifdef __MQL5__ 
+   Trade.SetExpertMagicNumber(TRADE_MAGIC); 
+   #endif 
 } 
 
 CTradeOps::~CTradeOps(void) {
@@ -90,14 +133,23 @@ bool       CTradeOps::OP_CloseTrade(int ticket) {
    switch(order_type) {
       case ORDER_TYPE_BUY:
       case ORDER_TYPE_SELL:
+         #ifdef __MQL4__ 
          c  = OrderClose(PosTicket(), PosLots(), close_price, 3);
+         #endif 
+         c  = Trade.PositionClose(ticket);
          if (!c) Log_.LogError(StringFormat("Order Close Failed. Ticket: %i, Error: %i", 
             PosTicket(), 
             GetLastError()), __FUNCTION__); 
          break; 
       case ORDER_TYPE_BUY_LIMIT:
       case ORDER_TYPE_SELL_LIMIT:
+         #ifdef __MQL4__ 
          c  = OrderDelete(PosTicket()); 
+         #endif 
+         
+         #ifdef __MQL5__ 
+         c = Trade.OrderDelete(ticket); 
+         #endif 
          if (!c) Log_.LogError(StringFormat("Order Delete Failed. Ticket: %i, Error: %i",
             PosTicket(),
             GetLastError()), __FUNCTION__);
@@ -119,11 +171,18 @@ int      CTradeOps::OP_OrderOpen(
    double tp,
    string comment,
    datetime expiration=0) {
+      #ifdef __MQL4__ 
       int ticket = OrderSend(Symbol(), order_type, NormalizeDouble(volume, 2), price, 3, sl, tp, comment, MAGIC(), expiration);
+      #endif 
+      
+      #ifdef __MQL5__ 
+      int ticket = Trade.PositionOpen(Symbol(), order_type, NormalizeDouble(volume, 2), price, sl, tp, comment); 
+      #endif
       return ticket; 
 }
 
 int      CTradeOps::OP_OrdersCloseAll(void) {
+   
    int open_positions   = PosTotal(); 
    CPoolGeneric<int> *tickets_to_close = new CPoolGeneric<int>(); 
    
@@ -181,8 +240,8 @@ int      CTradeOps::OP_OrdersBreakevenBatch(int &orders[]) {
       return 0; 
    }
    int ticket = order_pool.Item(0); 
-   int s = OP_OrderSelectByTicket(ticket); 
-   int m = OP_ModifySL(PosOpenPrice()); 
+   //int s = OP_OrderSelectByTicket(ticket); 
+   int m = OP_ModifySL(ticket, PosOpenPrice()); 
    int a = order_pool.Dequeue();
    if (a > num_orders) {
       delete order_pool;
@@ -221,9 +280,16 @@ bool     CTradeOps::OrderIsPending(int ticket) {
    return false;
 }
 
-int      CTradeOps::OP_ModifySL(double sl) {
+int      CTradeOps::OP_ModifySL(int ticket, double sl) {
+   int b = OP_OrderSelectByTicket(ticket); 
    if (sl == PosSL()) return 0; 
+   #ifdef __MQL4__ 
    int m = OrderModify(PosTicket(), PosOpenPrice(), sl, PosTP(), 0); 
+   #endif 
+   
+   #ifdef __MQL5__ 
+   int m = Trade.PositionModify(ticket, sl, PosTP()); 
+   #endif 
    if (!m) Log_.LogError(StringFormat("Order Modify Error. Current SL: %f, Target SL: %f", PosSL(), sl), __FUNCTION__); 
    return m; 
 }

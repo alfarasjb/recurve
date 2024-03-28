@@ -101,8 +101,17 @@ class CRecurveTrade : public CTradeOps {
       double         DAILY_VOLATILITY(int volatility_mode, int shift = 1); 
       double         STANDARD_SCORE(int shift = 1);
       double         SKEW(int shift = 1);
+      #ifdef __MQL4__
       double         BBANDS(int mode, int num_sd = 2, int shift = 1);
       double         BBANDS_SLOW(int mode, int num_sd = 2, int shift = 1);
+      #endif 
+      
+      #ifdef __MQL5__ 
+      
+      double         BBANDS(ENUM_BBANDS_MODE mode, int num_sd = 2, int shift = 1); 
+      double         BBANDS_SLOW(ENUM_BBANDS_MODE mode, int num_sd = 2, int shift = 1); 
+      double         BBANDS_VALUE(int handle, ENUM_BBANDS_MODE mode); 
+      #endif 
       
       //-- FEATURE WRAPPER 
       double         DAY_VOL();
@@ -164,7 +173,7 @@ class CRecurveTrade : public CTradeOps {
       bool           ValidFloatingGain(); 
       bool           ValidFloatingLoss(); 
       //bool           ValidLayers(); 
-      bool           Breakeven(); 
+      bool           Breakeven(int ticket); 
       bool           ValidTradeToday(); 
       
       //-- DATA STRUCTURE
@@ -196,6 +205,8 @@ class CRecurveTrade : public CTradeOps {
       bool        ValidTradeOpen();
       
       string      TradeLogicErrorReason(ENUM_TRADE_LOGIC_ERROR_REASON reason); 
+      
+      
    
 }; 
 CRecurveTrade::CRecurveTrade() : CTradeOps(Symbol(), InpMagic) {

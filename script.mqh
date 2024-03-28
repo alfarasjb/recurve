@@ -1,14 +1,14 @@
 
 #ifdef __MQL4__ 
-#include "lib/trade_mt4_h.mqh"
+#include <B63/CExport.mqh>
 #endif
 
 #include <B63/Generic.mqh>
-#include <B63/CExport.mqh>
 #include <RECURVE/Loader.mqh> 
 #include "lib/forex_factory.mqh"
 #include "dependencies/features.mqh"
 #include "lib/trade_app.mqh"
+#include "lib/trade_mt4_h.mqh"
 CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
@@ -22,30 +22,31 @@ int OnInit() {
    latest_values_panel.Update(); 
    accounts_panel.Update(); 
    AppDialog.Init(); 
+   bool testing; 
+   #ifdef __MQL4__ 
+   testing = IsTesting(); 
+   #endif
+     
+   #ifdef __MQL5__ 
+   testing = MQLInfoInteger(MQL_TESTER); 
+   #endif 
    
-   if (IsTesting()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
-   //ShowComments();
-   //accts.InitializeAccounts();
-   //accts.PLToday(); 
-   //Print(accts.Deposit()); 
-   //accts.Reverse();
+   if (testing) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
    return INIT_SUCCEEDED;
 
 }
 
 
 void OnDeinit(const int reason) {
+   #ifdef __MQL4__
    if (IsTesting()) {
       CExport  *export_hist   = new CExport("recurve_backtest"); 
       export_hist.ExportAccountHistory();
       delete export_hist;
    }
    
-   
+   #endif
    ObjectsDeleteAll(0, -1, -1); 
-   //ExtDialog.Destroy(reason); 
-   //TradeDialog.Destroy(reason); 
-   //FeatureDialog.Destroy(reason); 
    AppDialog.Destroy(reason); 
    feature_panel.Destroy(reason); 
    entry_panel.Destroy(reason); 
@@ -89,3 +90,12 @@ void OnChartEvent(const int id,         // event ID
    AppDialog.ChartEvent(id, lparam, dparam, sparam);
   }
   
+bool     Testing() {
+   #ifdef __MQL4__ 
+   return IsTesting(); 
+   #endif 
+   
+   #ifdef __MQL5__ 
+   return MQLInfoInteger(MQL_TESTER); 
+   #endif 
+}
