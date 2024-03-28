@@ -1,12 +1,7 @@
 
-#ifdef __MQL4__
 #include <RECURVE/CalendarDownloader.mqh> 
 #include <RECURVE/utilities.mqh>
-#endif 
 
-#ifdef __MQL5 
-
-#endif 
 #include <Controls/Defines.mqh> 
 #include <Controls/Dialog.mqh>
 #include <Controls/Button.mqh>
@@ -138,6 +133,12 @@ enum ENUM_FREQUENCY {
    FULL // FULL - 0
 };
 
+#ifdef __MQL5__ 
+enum ENUM_BBANDS_MODE {
+   MODE_UPPER, 
+   MODE_LOWER
+};
+#endif 
 // =========== STRUCT ========== // 
 
 struct RiskProfile {

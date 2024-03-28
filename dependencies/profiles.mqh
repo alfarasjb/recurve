@@ -96,7 +96,16 @@ TradeProfile     CProfiles::BuildProfile(void) {
       TRADE_PROFILE.low_volatility_threshold = StringToDouble(result[1]);
       
       uchar char_array[];
+      #ifdef __MQL4__
       int num_days = StringToCharArray(StringTrimRight(StringTrimLeft(result[2])), char_array); 
+      #endif 
+      
+      #ifdef __MQL5__ 
+      //--- MQL5 String trim is passed as reference 
+      StringTrimLeft(result[2]); 
+      StringTrimRight(result[2]); 
+      int num_days = StringToCharArray(result[2], char_array); 
+      #endif 
       
       for(int i = 0; i < num_days - 1; i++) {
          int size = ArraySize(TRADE_PROFILE.trade_days);
@@ -105,8 +114,13 @@ TradeProfile     CProfiles::BuildProfile(void) {
          
       } 
       
+      #ifdef __MQL4__
       ArraySort(TRADE_PROFILE.trade_days, WHOLE_ARRAY, 0, MODE_ASCEND);
+      #endif 
       
+      #ifdef __MQL5__
+      ArraySort(TRADE_PROFILE.trade_days); 
+      #endif 
       TRADE_PROFILE.trade_use_pd    = (int)result[3];
    }
    ClearHandle();
