@@ -1,5 +1,5 @@
 
-
+#include <RECURVE/utilities.mqh>
 
 
 class CLogging {
@@ -56,13 +56,7 @@ void        CLogging::LogDebugInformation(string message,string function) {
 }
 
 void        CLogging::LogNotification(string message) {
-   #ifdef __MQL4__
-   if (IsTesting()) return;
-   #endif
-   
-   #ifdef __MQL5__ 
-   if (MQLInfoInteger(MQL_TESTER)) return; 
-   #endif 
+   if (UTIL_IS_TESTING()) return; 
    if (!NotificationAllowed()) return; 
    ResetLastError(); 
    

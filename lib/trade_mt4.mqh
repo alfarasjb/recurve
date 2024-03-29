@@ -1,5 +1,8 @@
 /*
-
+========== MARCH 29, 2024 =========
+1. Updated trade matching to use tickets instead of index.
+   Affected files: trade_ops.mqh, trade_mt4.mqh
+   
 ========== MARCH 24, 2024 =========
 
 1. Fixed Var/Lot

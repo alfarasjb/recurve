@@ -560,7 +560,10 @@ int            CRecurveTrade::CloseOrder() {
    **/
    int num_positions    = PosTotal();
    
-   for (int i = 0; i < num_positions; i ++) int c = OP_OrdersCloseAll(); 
+   //for (int i = 0; i < num_positions; i ++) int c = OP_OrdersCloseAll(); 
+   //--- Update 3/29/2024
+   while (PosTotal() > 0) OP_OrdersCloseAll(); 
+   
    if (PosTotal() == 0) {
       CReports *reports = GenerateReports(); 
       reports.Reason("deadline"); 
@@ -843,10 +846,10 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
    
    for (int i = 0; i < num_trades; i++) {
       int t = OP_OrderSelectByIndex(i); 
-      if (!OP_TradeMatch(i)) continue; 
-      
-      ENUM_ORDER_TYPE current_position = CurrentOpenPosition(), order = PosOrderType(); 
       int ticket  = PosTicket(); 
+      if (!OP_TradeMatchTicket(ticket)) continue; 
+      ENUM_ORDER_TYPE current_position = CurrentOpenPosition(), order = PosOrderType(); 
+      
       bool valid_interval  = ValidInterval(), profit = PosProfit() > 0;
       
       bool c=false; 
@@ -1320,10 +1323,11 @@ int            CRecurveTrade::UpdatePositions() {
    int updated_size = 0;
    //-- Iterate through order pool and find open positions with matching symbol and magic number
    for (int i = 0; i < open_positions; i++) {
-      int s = OP_OrderSelectByIndex(i); 
-      if (!OP_TradeMatch(i)) continue; //-- Skips if symbol and magic number do not match. 
-      
+      int s = OP_OrderSelectByIndex(i);
       int ticket = PosTicket(); 
+      if (!OP_TradeMatchTicket(ticket)) continue; 
+      //if (!OP_TradeMatch(i)) continue; //-- Skips if symbol and magic number do not match. 
+      
       synthetic.Append(ticket); 
    }
    

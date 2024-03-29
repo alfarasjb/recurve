@@ -88,6 +88,7 @@ class CTradeOps {
       virtual     bool     OP_CloseTrade(int ticket);
       virtual     int      OP_OrderOpen(string symbol, ENUM_ORDER_TYPE order_type, double volume, double price, double sl, double tp, string comment, datetime expiration = 0); 
       virtual     bool     OP_TradeMatch(int index);
+      virtual     bool     OP_TradeMatchTicket(int ticket); 
      
       virtual     int      OP_ModifySL(int ticket, double sl); 
      
@@ -178,28 +179,48 @@ int      CTradeOps::OP_OrderOpen(
       int ticket = OrderSend(Symbol(), order_type, NormalizeDouble(volume, 2), price, 3, sl, tp, comment, MAGIC(), expiration);
       #endif 
       
-      #ifdef __MQL5__ 
-      int ticket = Trade.PositionOpen(Symbol(), order_type, NormalizeDouble(volume, 2), price, sl, tp, comment); 
-      #endif
+      #ifdef __MQL5__
+      int result = Trade.PositionOpen(symbol, order_type, NormalizeDouble(volume, 2), price, sl, tp, comment);
+      ulong ret_code = Trade.ResultRetcode(); 
+      if (ret_code != TRADE_RETCODE_DONE) Log_.LogError(StringFormat("Position open error. Code: %i", ret_code), __FUNCTION__); 
+      
+      ulong ticket = Trade.ResultDeal(); 
+      #endif 
       return ticket; 
 }
 
 int      CTradeOps::OP_OrdersCloseAll(void) {
-   
+   /**
+      Closes trades opened by the EA. Closes only set symbol and magic number 
+   **/
+   //--- Last Update 3/29/2024
    int open_positions   = PosTotal(); 
    CPoolGeneric<int> *tickets_to_close = new CPoolGeneric<int>(); 
    
+   int s, ticket; 
    for (int i = 0; i < open_positions; i++) {
-      int s = OP_OrderSelectByIndex(i); 
-      if (!OP_TradeMatch(i)) continue;
-      int ticket  = PosTicket();
+      s        = OP_OrderSelectByIndex(i); 
+      ticket   = PosTicket();
+      //if (!OP_TradeMatch(i)) continue;
+      if (!OP_TradeMatchTicket(ticket)) continue; 
       tickets_to_close.Append(ticket);
    }
    
+   /*
    int closed     = 0;
    for (int j = 0; j < tickets_to_close.Size(); j++) {
       bool c   = OP_CloseTrade(tickets_to_close.Item(j)); 
       if (c) closed++; 
+   }*/
+   
+   int closed, active_ticket;
+   bool d; 
+   while (tickets_to_close.Size() > 0) {
+      //--- Unstack 
+      active_ticket = tickets_to_close.First(); 
+      d = OP_CloseTrade(active_ticket);
+      tickets_to_close.Remove(active_ticket); 
+      closed++;  
    }
    
    delete tickets_to_close; 
@@ -211,6 +232,7 @@ int      CTradeOps::OP_OrdersCloseBatch(int &orders[]) {
    order_pool.Create(orders); 
    int num_orders = order_pool.Size(); 
    
+   //--- Recursion base case 
    if (num_orders <= 0) {
       delete order_pool;
       return 0; 
@@ -275,6 +297,14 @@ bool     CTradeOps::OP_TradeMatch(int index) {
    if (PosMagic() != MAGIC()) return false;
    if (PosSymbol() != SYMBOL()) return false; 
    return true; 
+}
+
+bool     CTradeOps::OP_TradeMatchTicket(int ticket) {
+   
+   int t = OP_OrderSelectByTicket(ticket);
+   if (PosMagic() != MAGIC()) return false; 
+   if (PosSymbol() != SYMBOL()) return false; 
+   return true;
 }
 
 bool     CTradeOps::OrderIsPending(int ticket) {
