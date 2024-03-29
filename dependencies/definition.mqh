@@ -106,6 +106,7 @@ enum ENUM_PRESET {
 
 enum ENUM_TRADE_MANAGEMENT {
    MODE_BREAKEVEN, // Breakeven
+   MODE_TRAILSTOP, // Trailing Stop
    MODE_NONE // None
 };
 
