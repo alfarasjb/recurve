@@ -174,6 +174,10 @@ class CRecurveTrade : public CTradeOps {
       bool           ValidFloatingLoss(); 
       //bool           ValidLayers(); 
       bool           Breakeven(int ticket); 
+      bool           TrailStop(int ticket); 
+      bool           IsRiskFree(int ticket); 
+      
+      bool           PassedGainThreshold(int ticket);
       bool           ValidTradeToday(); 
       
       //-- DATA STRUCTURE

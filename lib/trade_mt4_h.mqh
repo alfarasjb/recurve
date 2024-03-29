@@ -691,18 +691,104 @@ bool           CRecurveTrade::Breakeven(int ticket) {
    if (InpTradeMgt != MODE_BREAKEVEN) return false; 
    
    bool feature_valid = ValidFeatureBreakeven(ticket); 
-   double balance = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
-   double gain    = balance * (InpBEThreshold / 100); 
+   bool passed_gain_threshold = PassedGainThreshold(ticket);
    
    //--- Returns false if current profit is below required threshold. 
    //---- Allows breakeven for trades that exceeded gain threshold, or feature validity with bbands
-   if (PosProfit() < gain && !feature_valid) return false; 
+   if (!passed_gain_threshold && !feature_valid) return false; 
    
    //-- Returns false if already set as BE
-   if (UTIL_TO_PRICE(PosSL()) == UTIL_TO_PRICE(PosOpenPrice())) return false;
+   //--- Setting breakeven requires position to be unmodified.
+   //--- Identifying risk free positions prevents overlap with trail stop 
+   if (IsRiskFree(ticket)) {
+      Log.LogInformation(StringFormat("Ticket: %i is already risk free. Attempting to set trail stop.", 
+         ticket), __FUNCTION__);
+      return TrailStop(ticket); 
+   }
    //--- Modifies SL 
    bool m = OP_ModifySL(ticket, PosOpenPrice()); 
    return m;
+}
+
+
+
+bool           CRecurveTrade::TrailStop(int ticket) {
+   /**
+      Sets trail stop if position floating profit is greater than or 
+      equal to required profit threshold (Input) or if position is already
+      set to breakeven. 
+      
+      Trail stop price:
+         Long -> BBands Lower 
+         Short -> BBands Upper 
+         
+      Test Case: GBPAUD 3/28/2024
+   **/
+   //--- Check if trade management is set to trail stop 
+   if (InpTradeMgt != MODE_TRAILSTOP) return false; 
+   
+   //--- Select ticket to train stop 
+   int s = OP_OrderSelectByTicket(ticket); 
+   //--- Check for breakeven 
+   //--- Setting trail stop requires position to be risk free
+   if (!IsRiskFree(ticket)) return false; 
+   //--- Check if profit threshold is reached 
+   if (!PassedGainThreshold(ticket)) {
+      Log.LogInformation(StringFormat("Ticket: %i is below gain threshold. Current: %f", 
+         ticket, 
+         PosProfit()), __FUNCTION__);
+      return false; 
+   }
+   //--- Set Trail Stop Price
+   double trail_stop_price;
+   switch(PosOrderType()) {
+      case ORDER_TYPE_BUY:
+         trail_stop_price  = FEATURE.lower_bands; 
+         break;
+      case ORDER_TYPE_SELL: 
+         trail_stop_price  = FEATURE.upper_bands; 
+         break;
+      default:
+         trail_stop_price = PosOpenPrice(); 
+         break; 
+   }
+   bool m = OP_ModifySL(ticket, trail_stop_price);
+   if (!m) Log.LogInformation(StringFormat("Failed to set trail stop. Ticket: %i", ticket), __FUNCTION__);
+   return m; 
+   
+}
+
+bool           CRecurveTrade::IsRiskFree(int ticket) {
+   /**
+      Checks if position is risk free (trail stop or breakeven already set)
+   **/
+   //--- Select Ticket to check 
+   int s = OP_OrderSelectByTicket(ticket); 
+   
+   switch(PosOrderType()) {
+      case ORDER_TYPE_BUY:
+         if (UTIL_TO_PRICE(PosSL()) >= UTIL_TO_PRICE(PosOpenPrice())) return true; 
+         break;
+      case ORDER_TYPE_SELL: 
+         if (UTIL_TO_PRICE(PosSL()) <= UTIL_TO_PRICE(PosOpenPrice())) return true;
+         break;
+   }
+   return false; 
+   
+   
+}
+
+bool           CRecurveTrade::PassedGainThreshold(int ticket) {
+   /**
+      Determines if current position gain has passed gain threshold
+      required to eliminate risk by setting breakeven and trailing stops. 
+   **/
+   int s = OP_OrderSelectByTicket(ticket); 
+   double balance = InpUseFixedRisk ? InpFixedRisk : UTIL_ACCOUNT_BALANCE(); 
+   double gain    = balance * (InpBEThreshold / 100); 
+   if (PosProfit() >= gain) return true;
+   return false; 
+   
 }
 
 bool           CRecurveTrade::ValidFeatureBreakeven(int ticket) {
