@@ -22,30 +22,23 @@ int OnInit() {
    latest_values_panel.Update(); 
    accounts_panel.Update(); 
    AppDialog.Init(); 
-   bool testing; 
-   #ifdef __MQL4__ 
-   testing = IsTesting(); 
-   #endif
-     
-   #ifdef __MQL5__ 
-   testing = MQLInfoInteger(MQL_TESTER); 
-   #endif 
    
-   if (testing) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
+   if (UTIL_IS_TESTING()) Print("Holidays INIT: ", calendar_loader.LoadCSV(NEUTRAL)); 
    return INIT_SUCCEEDED;
 
 }
 
 
 void OnDeinit(const int reason) {
-   #ifdef __MQL4__
-   if (IsTesting()) {
+   #ifdef __MQL4__ 
+   if (UTIL_IS_TESTING()) {
       CExport  *export_hist   = new CExport("recurve_backtest"); 
       export_hist.ExportAccountHistory();
       delete export_hist;
    }
-   
    #endif
+   
+   
    ObjectsDeleteAll(0, -1, -1); 
    AppDialog.Destroy(reason); 
    feature_panel.Destroy(reason); 
