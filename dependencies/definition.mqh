@@ -237,6 +237,12 @@ struct AccountHistory {
    double   pl_today, deposit, start_bal_today, gain_today;
    
 } ACCOUNT_HIST; 
+
+struct TrailStopParams {
+   int      ticket; 
+   double   target_sl, current_sl;
+   ENUM_ORDER_TYPE current_order_type;
+}; 
 /**
 //--- GLOBAL CONFIG ---// 
 

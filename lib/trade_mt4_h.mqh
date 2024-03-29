@@ -691,23 +691,18 @@ bool           CRecurveTrade::Breakeven(int ticket) {
    **/
    int s = OP_OrderSelectByTicket(ticket); 
    //--- Calculates minimum gain to set BE. 
-   if (InpTradeMgt != MODE_BREAKEVEN) return false; 
+   if (InpTradeMgt == MODE_NONE) return false; 
    
    bool feature_valid = ValidFeatureBreakeven(ticket); 
    bool passed_gain_threshold = PassedGainThreshold(ticket);
    
    //--- Returns false if current profit is below required threshold. 
    //---- Allows breakeven for trades that exceeded gain threshold, or feature validity with bbands
-   if (!passed_gain_threshold && !feature_valid) return false; 
+   if (!passed_gain_threshold || !feature_valid) return false; 
    
    //-- Returns false if already set as BE
    //--- Setting breakeven requires position to be unmodified.
-   //--- Identifying risk free positions prevents overlap with trail stop 
-   if (IsRiskFree(ticket)) {
-      Log.LogInformation(StringFormat("Ticket: %i is already risk free. Attempting to set trail stop.", 
-         ticket), __FUNCTION__);
-      return TrailStop(ticket); 
-   }
+   
    //--- Modifies SL 
    bool m = OP_ModifySL(ticket, PosOpenPrice()); 
    return m;
@@ -742,23 +737,47 @@ bool           CRecurveTrade::TrailStop(int ticket) {
          PosProfit()), __FUNCTION__);
       return false; 
    }
+   TrailStopParams trail_params;
+   trail_params.current_order_type  = PosOrderType();
+   trail_params.current_sl          = PosSL(); 
+   trail_params.ticket              = ticket; 
+   
    //--- Set Trail Stop Price
-   double trail_stop_price;
-   switch(PosOrderType()) {
+   switch(trail_params.current_order_type) {
       case ORDER_TYPE_BUY:
-         trail_stop_price  = FEATURE.lower_bands; 
+         trail_params.target_sl  = FEATURE.lower_bands;
          break;
       case ORDER_TYPE_SELL: 
-         trail_stop_price  = FEATURE.upper_bands; 
+         trail_params.target_sl  = FEATURE.upper_bands; 
          break;
       default:
-         trail_stop_price = PosOpenPrice(); 
+         trail_params.target_sl  = PosOpenPrice(); 
          break; 
    }
-   bool m = OP_ModifySL(ticket, trail_stop_price);
+   if (!ValidTrailStopParams(trail_params)) {
+      Log.LogInformation(StringFormat("Failed to set trail stop. Target stop level is worse than set stop level. Ticket: %i, Target: %f, Current: %f", 
+         trail_params.ticket,
+         trail_params.target_sl,
+         trail_params.current_sl), __FUNCTION__); 
+      return false; 
+   }
+   bool m = OP_ModifySL(ticket, trail_params.target_sl);
    if (!m) Log.LogInformation(StringFormat("Failed to set trail stop. Ticket: %i", ticket), __FUNCTION__);
+   else Log.LogInformation(StringFormat("Trail stop set for ticket: %i", ticket), __FUNCTION__); 
    return m; 
    
+}
+
+bool           CRecurveTrade::ValidTrailStopParams(TrailStopParams &trail_params) {
+   switch(trail_params.current_order_type) {
+      case ORDER_TYPE_BUY:
+         if (trail_params.target_sl > trail_params.current_sl) return true; 
+         break;
+      case ORDER_TYPE_SELL:
+         if (trail_params.target_sl < trail_params.current_sl) return true; 
+         break;
+   }
+   return false; 
 }
 
 bool           CRecurveTrade::IsRiskFree(int ticket) {
@@ -864,9 +883,18 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
          If Valid Stack: ignore 
          Else: continue 
       **/
-      if (Breakeven(ticket)) Log.LogInformation(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
- 
- 
+      switch(Breakeven(ticket)) {
+         case true: 
+            Log.LogInformation(StringFormat("Breakeven set for: %s, Ticket: %i", Symbol(), ticket), __FUNCTION__, false, true); 
+            break; 
+         case false: 
+            if (IsRiskFree(ticket)) {
+               Log.LogInformation(StringFormat("Ticket: %i is already risk free. Attempting to set trail stop.", ticket), __FUNCTION__, false, true); 
+               TrailStop(ticket); 
+            }
+            
+      }
+    
       switch(reason) {
          case TRADE_LONG:        if (!ValidCloseOnTradeLong(ticket))       continue; break; 
          case TRADE_SHORT:       if (!ValidCloseOnTradeShort(ticket))      continue; break;
@@ -968,8 +996,9 @@ bool           CRecurveTrade::ValidCloseOnTradeLong(int ticket) {
       3. Disregard interval 
    */
    if (PosOrderType() == ORDER_TYPE_SELL) {
-      if ((profit && InpFloatingGain == SECURE_FLOATING_PROFIT) 
+      if ((profit/* && InpFloatingGain == SECURE_FLOATING_PROFIT*/) 
          || (!profit && InpFloatingDD == CUT_FLOATING_LOSS)) {
+         // Note: If hedge enabled, return false if in profit 
          Log.LogInformation(StringFormat("%s. Reason - %s", 
             log_message,
             TradeLogicErrorReason(REASON_INVERT)), __FUNCTION__);
@@ -1000,7 +1029,7 @@ bool           CRecurveTrade::ValidCloseOnTradeShort(int ticket) {
       }
    }
    if (PosOrderType() == ORDER_TYPE_BUY) {
-      if ((profit && InpFloatingGain == SECURE_FLOATING_PROFIT) 
+      if ((profit/* && InpFloatingGain == SECURE_FLOATING_PROFIT*/) 
          || (!profit && InpFloatingDD == CUT_FLOATING_LOSS)) {
          Log.LogInformation(StringFormat("%s. Reason - %s",
             log_message,
@@ -1619,12 +1648,12 @@ ENUM_SIGNAL    CRecurveTrade::CutLoss(FeatureValues &features) {
    **/
    
    //-- Cut Short condition 
-   if ((features.standard_score_value <= -FEATURE_CONFIG.SPREAD_THRESHOLD) 
+   if (((features.standard_score_value <= -FEATURE_CONFIG.SPREAD_THRESHOLD) || (UTIL_CANDLE_LOW() < features.lower_bands)) 
       && (features.last_candle_close > features.slow_upper)) 
       return CUT_SHORT; 
       
    //-- Cut Long condition 
-   if ((features.standard_score_value >= FEATURE_CONFIG.SPREAD_THRESHOLD) 
+   if (((features.standard_score_value >= FEATURE_CONFIG.SPREAD_THRESHOLD) || (UTIL_CANDLE_HIGH() > features.upper_bands))
       && (features.last_candle_close < features.slow_lower)) 
       return CUT_LONG;
       

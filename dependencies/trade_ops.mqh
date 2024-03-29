@@ -315,7 +315,6 @@ bool     CTradeOps::OrderIsPending(int ticket) {
 
 int      CTradeOps::OP_ModifySL(int ticket, double sl) {
    int b = OP_OrderSelectByTicket(ticket); 
-   if (sl == PosSL()) return 0; 
    #ifdef __MQL4__ 
    int m = OrderModify(PosTicket(), PosOpenPrice(), sl, PosTP(), 0); 
    #endif 

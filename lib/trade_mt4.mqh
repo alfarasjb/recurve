@@ -175,6 +175,7 @@ class CRecurveTrade : public CTradeOps {
       //--- POSITION MANAGEMENT
       bool           ValidFloatingGain(); 
       bool           ValidFloatingLoss(); 
+      bool           ValidTrailStopParams(TrailStopParams &trail_params); 
       //bool           ValidLayers(); 
       bool           Breakeven(int ticket); 
       bool           TrailStop(int ticket); 
