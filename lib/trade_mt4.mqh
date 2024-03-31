@@ -150,7 +150,7 @@ class CRecurveTrade : public CTradeOps {
       TradeParams    SetTradeParameters(ENUM_ORDER_SEND_METHOD method, TradeLayer &layer);
       double         CalcLot(double sl_distance);
       double         SLFactor(double entry_price);
-      int            SendMarketOrder(TradeParams &PARAMS);
+      int            SendTradeOrder(TradeParams &PARAMS);
       int            CloseOrder();
       double         CatastrophicSLFactor(double lot, double var);
       double         CatastrophicLossVAR();

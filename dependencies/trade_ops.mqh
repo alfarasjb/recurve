@@ -100,6 +100,7 @@ class CTradeOps {
       //--- MISC FUNCTIONS
       virtual     bool     OrderIsPending(int ticket); 
       virtual     int      PopOrderArray(int &tickets[]); 
+      virtual     bool     OrderTypeIsPending(ENUM_ORDER_TYPE order); 
       
       
 
@@ -180,6 +181,7 @@ int      CTradeOps::OP_OrderOpen(
       #endif 
       
       #ifdef __MQL5__
+      // TODO: PENDING ORDERS
       int result = Trade.PositionOpen(symbol, order_type, NormalizeDouble(volume, 2), price, sl, tp, comment);
       ulong ret_code = Trade.ResultRetcode(); 
       if (ret_code != TRADE_RETCODE_DONE) Log_.LogError(StringFormat("Position open error. Code: %i", ret_code), __FUNCTION__); 
@@ -187,6 +189,17 @@ int      CTradeOps::OP_OrderOpen(
       ulong ticket = Trade.ResultDeal(); 
       #endif 
       return ticket; 
+}
+
+bool     CTradeOps::OrderTypeIsPending(ENUM_ORDER_TYPE order) {
+   switch(order) {
+      case ORDER_TYPE_BUY: 
+      case ORDER_TYPE_SELL: 
+         return false; 
+      default: 
+         break; 
+   }
+   return true; 
 }
 
 int      CTradeOps::OP_OrdersCloseAll(void) {
