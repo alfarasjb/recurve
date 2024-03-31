@@ -58,7 +58,8 @@ class CRecurveTrade : public CTradeOps {
       
       
       // Temporary. Counter used to track number of trades opened today. 
-      int            symbol_trades_today_;
+      int            symbol_trades_today_, total_trades_today_;
+      double         net_pl_today_; 
       
       string         SYMBOLS_PATH_, SETTINGS_PATH_; 
    private:
@@ -171,6 +172,7 @@ class CRecurveTrade : public CTradeOps {
       CReports       *GenerateReports(); 
       string         PresetKey(); 
       int            Recover(); 
+      bool           BreachedMaxLoss(); 
       
       //--- POSITION MANAGEMENT
       bool           ValidFloatingGain(); 

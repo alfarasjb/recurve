@@ -33,12 +33,51 @@ void           CRecurveTrade::OnEndOfDay() {
    **/
    //--- Clear Today
    //Accounts_.ClearToday(); 
+   Log.LogInformation(StringFormat("End Of Day. Symbol Trades Today: %i, Total Trades Today: %i, Net PL Today: %i", 
+      symbol_trades_today_,
+      total_trades_today_,
+      net_pl_today_), __FUNCTION__); 
    symbol_trades_today_    = 0; 
+   total_trades_today_     = 0;
+   net_pl_today_           = 0; 
    Log.LogInformation(StringFormat("Reset. Symbol Trades Today: %i", symbol_trades_today_), __FUNCTION__);    
 }
 
 
-//void           CRecurveTrade::TrackAccounts() {   Accounts_.Track(); }
+void           CRecurveTrade::TrackAccounts() {
+   /**
+      Tracks account p/l
+      
+      Update at every interval 
+      
+      Store p/l at member variable. Reset at EOD
+      
+      TEMPORARY!! 
+   **/
+   
+   //--- Identify Starting point 
+   int s  = OP_HistorySelectByIndex(PosHistTotal() - 1); 
+   if (!UTIL_IS_TODAY(PosOpenTime())) {
+      s = OP_HistorySelectByIndex(0); 
+   }
+   
+   //--- Calculate 
+   double pl_today = 0;
+   int trades_today = 0; 
+   for (int i = PosHistTotal() - 1; i >= 0; i--) {
+      //--- Assumption: history is ascending, therefore, decrement to get latest trades 
+      s = OP_HistorySelectByIndex(i);
+      datetime trade_date  = UTIL_GET_DATE(PosOpenTime());
+      datetime date_today  = UTIL_DATE_TODAY();  
+      if (date_today != trade_date) return; 
+      pl_today+=PosProfit();  
+      trades_today++; 
+   }
+   
+   //--- Update member variables 
+   net_pl_today_        = pl_today; 
+   total_trades_today_  = trades_today; 
+}
 
 string         CRecurveTrade::PresetKey() {
    string preset_as_string = EnumToString(InpPreset); 
@@ -467,6 +506,15 @@ int            CRecurveTrade::SendTradeOrder(TradeParams &PARAMS)  {
    **/
    
    string order_fail_string   = StringFormat("ORDER: %s failed.", EnumToString(InpOrderSendMethod)); 
+   //-- Returns if daily pl has breached daily maxloss
+   if (BreachedMaxLoss()) {
+      Log.LogInformation(StringFormat("%s Reason: Breached Max Daily Loss. Daily Loss Limit(USD): %f, Current Loss(USD): %f",
+         order_fail_string,
+         InpDailyMaxLossUSD,
+         net_pl_today_), __FUNCTION__);
+      return 0; 
+   }
+   
    //-- Returns if trade window is closed. 
    if (!ValidTradeWindow()) { 
       Log.LogInformation(StringFormat("%s Reason: Trade window is closed.", 
@@ -1446,11 +1494,22 @@ bool           CRecurveTrade::ValidInterval() {
    return false;
 }
 
+bool           CRecurveTrade::BreachedMaxLoss() {
+   /**
+      Determines if net loss today breaches max daily loss
+   **/ 
+   if (InpIgnoreAccount) return false; 
+   if (InpDailyMaxLossUSD == 0) return false; 
+   return net_pl_today_ < -MathAbs(InpDailyMaxLossUSD); 
+}
+
 bool           CRecurveTrade::EndOfDay() {
-   //-- Determines end of trading window 
-   int hour = UTIL_TIME_HOUR(TimeCurrent());
-   if (hour >= FEATURE_CONFIG.TRADE_DEADLINE) return true;
-   return false; 
+   /**
+      Determined end of trading window  
+      
+      3/31/2024
+   **/
+   return UTIL_TIME_HOUR(TimeCurrent()) >= FEATURE_CONFIG.TRADE_DEADLINE; 
    
 }
 
@@ -1477,10 +1536,17 @@ bool           CRecurveTrade::ValidDayVolatility() {
 }
 
 bool           CRecurveTrade::DayOfWeekInTradingDays() {
+   /**
+      Determines if day of week is in valid trading days. 
+   **/
    if (InpIgnoreDayOfWeek) return true; 
    int current_day_of_week    = UTIL_TIME_DAY_OF_WEEK(TimeCurrent()) - 1; 
+   
+   /*
    if (CONFIG.TRADING_DAYS.Search(current_day_of_week)) return true; 
    return false; 
+   */
+   return CONFIG.TRADING_DAYS.Search(current_day_of_week);
 }
 
 bool           CRecurveTrade::ValidDayOfWeek() { return DayOfWeekInTradingDays(); }
