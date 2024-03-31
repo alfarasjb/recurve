@@ -73,7 +73,8 @@ enum ENUM_POSITION_SIZING {
 };
 
 enum ENUM_ORDER_SEND_METHOD {
-   MODE_MARKET, MODE_PENDING
+   MODE_MARKET, // Market Order
+   MODE_PENDING // Pending Order
 };
 
 enum ENUM_POSITIONS {
@@ -383,6 +384,7 @@ input string                  InpEmpty_4           = ""; //
 
 
 input string                  InpRiskProfile       = "Risk Profile and Trade Ops"; // ========== RISK PROFILE ==========
+input ENUM_ORDER_SEND_METHOD  InpOrderSendMethod   = MODE_MARKET; // ORDER SEND METHOD 
 input ENUM_TIMEFRAMES         InpRPTimeframe       = PERIOD_M15; // RISK PROFILE: TIMEFRAME
 input int                     InpMagic             = 232323; // MAGIC NUMBER
 input double                  InpMaxLot            = 0.01; // MAX LOT

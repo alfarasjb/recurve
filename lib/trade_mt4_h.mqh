@@ -425,7 +425,7 @@ TradeParams    CRecurveTrade::ParamsLong(ENUM_ORDER_SEND_METHOD method,TradeLaye
    **/
    
    TradeParams    PARAMS;
-   PARAMS.entry_price      = UTIL_PRICE_ASK();
+   PARAMS.entry_price      = method == MODE_MARKET ? UTIL_PRICE_ASK() : UTIL_LAST_CANDLE_OPEN();
    double virtual_sl       = PARAMS.entry_price - SLFactor(PARAMS.entry_price);
    PARAMS.volume           = CalcLot(MathAbs(PARAMS.entry_price - virtual_sl)) * layer.allocation; 
    PARAMS.sl_price         = PARAMS.entry_price - CatastrophicSLFactor(PARAMS.volume, CatastrophicLossVAR()); // CALCULATE VIRTUAL SL LATER
@@ -445,7 +445,7 @@ TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLay
    **/
    
    TradeParams    PARAMS;
-   PARAMS.entry_price      = UTIL_PRICE_BID();
+   PARAMS.entry_price      = method == MODE_MARKET ? UTIL_PRICE_BID() : UTIL_LAST_CANDLE_OPEN(); 
    double virtual_sl       = PARAMS.entry_price + SLFactor(PARAMS.entry_price);
    PARAMS.volume           = CalcLot(MathAbs(PARAMS.entry_price - virtual_sl)) * layer.allocation; 
    
@@ -459,39 +459,45 @@ TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLay
 
 }
 
-int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
+
+int            CRecurveTrade::SendTradeOrder(TradeParams &PARAMS)  {
 
    /**
       Send Market Order
    **/
-
+   
+   string order_fail_string   = StringFormat("ORDER: %s failed.", EnumToString(InpOrderSendMethod)); 
    //-- Returns if trade window is closed. 
    if (!ValidTradeWindow()) { 
-      Log.LogInformation("ORDER SEND FAILED. Trade window is closed.", __FUNCTION__);
+      Log.LogInformation(StringFormat("%s Reason: Trade window is closed.", 
+         order_fail_string), __FUNCTION__);
       return 0;
    }
    
    //-- Returns if interval is invalid: selected timeframe does not match input timeframe. 
    if (!ValidInterval()) {
-      string error_message = StringFormat("ORDER SEND FAILED. Invalid Interval. Current: %i", UTIL_TIME_MINUTE(TimeCurrent()));
-      Log.LogInformation(error_message, __FUNCTION__); 
-      //error(error_message);
+      Log.LogInformation(StringFormat("%s Reason: Invalid Interval. Current: %i", 
+         order_fail_string, 
+         UTIL_TIME_MINUTE(TimeCurrent())), __FUNCTION__);
       return 0;
    }
    
    int size = ALGO_POSITIONS_.Size(); 
    //-- Returns if current open positions is equal to max layers 
    if (size >= InpMaxLayers) {
-      Log.LogInformation(StringFormat("Max Layers Reached. Current Open Positions for %s: %i. Max Layers: %i",
+      Log.LogInformation(StringFormat("%s Reason: Max Layers Reached. Current Open Positions for %s: %i. Max Layers: %i", 
+         order_fail_string, 
          Symbol(),
-         size, 
-         InpMaxLayers), __FUNCTION__, false, true); 
+         size,
+         InpMaxLayers), __FUNCTION__); 
       return 0; 
    }
 
    //int num_trades_opened_today   = Accounts_.AccountSymbolTradesToday(); 
    if (symbol_trades_today_ >= InpMaxDayTrades) {
-      Log.LogInformation(StringFormat("ORDER SEND FAILED. Daily Trade Limit Reached. Trades: %i", symbol_trades_today_), __FUNCTION__);
+      Log.LogInformation(StringFormat("%s Reason: Daily Trade Limit Reached. Trades: %i", 
+         order_fail_string, 
+         symbol_trades_today_), __FUNCTION__); 
       return 0; 
    }
    
@@ -501,7 +507,8 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
    int ticket     = OP_OrderOpen(Symbol(), (ENUM_ORDER_TYPE)PARAMS.order_type, PARAMS.volume, PARAMS.entry_price, PARAMS.sl_price, PARAMS.tp_price, comment);
    
    if (ticket == -1) {
-      string error_message = StringFormat("ORDER SEND FAILED. ERROR: %i. Symbol: %s, Vol: %f, Entry: %f, SL: %f, TP: %f", 
+      string error_message = StringFormat("%s. ERROR: %i. Symbol: %s, Vol: %f, Entry: %f, SL: %f, TP: %f", 
+         order_fail_string,
          GetLastError(), 
          Symbol(), 
          PARAMS.volume, 
@@ -512,33 +519,13 @@ int            CRecurveTrade::SendMarketOrder(TradeParams &PARAMS)  {
       Log.LogError(error_message, __FUNCTION__); 
       return -1; 
    }
-   /*
-   
-   SetTradeWindow(TimeCurrent());
-   
-   ActivePosition    pos;
-   pos.pos_open_datetime   =  TRADES_ACTIVE.trade_open_datetime;
-   pos.pos_deadline        =  TRADES_ACTIVE.trade_close_datetime;
-   pos.pos_ticket          =  ticket;
-   pos.layer               =  PARAMS.layer;
-   
-   AppendActivePosition(pos, TRADES_ACTIVE.active_positions);
-   
-   switch(PARAMS.layer.layer) {
-      case LAYER_PRIMARY:     AppendActivePosition(pos, TRADES_ACTIVE.primary_layers); break;
-      case LAYER_SECONDARY:   AppendActivePosition(pos, TRADES_ACTIVE.secondary_layers); break;
-      default: break;
-   }
-   
-   Log.LogInformation(StringFormat("Updated active positions: %i, Ticket: %i", NumActivePositions(), pos.pos_ticket), __FUNCTION__);
-   //AddOrderToday();
-   */
    
    if (!ALGO_POSITIONS_.Search(ticket)) ALGO_POSITIONS_.Append(ticket); 
    //Accounts_.AddTradeToday(ticket); 
    //Accounts_.AddOpenedPositionToday(ticket); 
    symbol_trades_today_++; 
-   Log.LogInformation(StringFormat("Order Placed. Symbol: %s, Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f, Symbol Trades Today: %i", 
+   Log.LogInformation(StringFormat("Order: %s placed. Symbol: %s, Ticket: %i, Order Type: %s, Volume: %f, Entry Price: %f, SL Price: %f, Symbol Trades Today: %i", 
+      EnumToString(InpOrderSendMethod), 
       Symbol(),
       ticket,
       EnumToString((ENUM_ORDER_TYPE)PARAMS.order_type), 
@@ -1198,7 +1185,21 @@ int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
    TradeLayer     LAYER;
    LAYER.layer          = LAYER_PRIMARY;
    LAYER.allocation     = 1.0;  
-   
+   TradeParams PARAMS; 
+   switch(signal) {
+      case TRADE_LONG:
+         Log.LogInformation("Send Order: Long", __FUNCTION__);
+         PARAMS   = ParamsLong(InpOrderSendMethod, LAYER);
+         break;
+      case TRADE_SHORT:
+         Log.LogInformation("Send Order: Short", __FUNCTION__);
+         PARAMS   = ParamsShort(InpOrderSendMethod, LAYER);
+         break; 
+      default:
+         return 0; 
+   }
+   return SendTradeOrder(PARAMS); 
+   /*
    switch(signal) {
       case TRADE_LONG:
          Log.LogInformation("Send Order: Long", __FUNCTION__);    
@@ -1210,7 +1211,7 @@ int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
    }
    
    return 0; 
-
+   */
 }
 
 double         CRecurveTrade::CalcBuffer() {
