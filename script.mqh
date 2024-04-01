@@ -72,7 +72,8 @@ MAIN LOOP
       accounts_panel.Update(); 
       if (calendar_loader.IsNewYear()) calendar_loader.LoadCSV(HIGH); 
    }
-   //recurve_trade.TrackAccounts(); 
+   //--- TEMPORARY
+   recurve_trade.TrackAccounts(); 
 }
 
 void OnChartEvent(const int id,         // event ID  

@@ -282,6 +282,9 @@ struct TrailStopParams {
       - Ignore intervals/frequency restrictions. 
       - Allows trading on all intervals. 
       
+   InpIgnoreAccount: bool
+      - Ignore account constraints (daily pl)
+      
    InpUseFixedRisk: bool
       - Uses fixed value for balance for calculating risk per trade. 
 
@@ -371,6 +374,7 @@ input string                  InpConstraints       = "Override settings.ini"; //
 input bool                    InpIgnoreLowVol      = true; // IGNORE LOW VOLATILITY CONSTRAINT
 input bool                    InpIgnoreDayOfWeek   = false; // IGNORE DAY OF WEEK 
 input bool                    InpIgnoreIntervals   = false; // IGNORE INTERVALS
+input bool                    InpIgnoreAccount     = false; // IGNORE ACCOUNT
 input bool                    InpUseFixedRisk      = true; // USE FIXED RISK
 input string                  InpEmpty_3           = ""; 
 
@@ -392,6 +396,7 @@ input double                  InpLotScaleFactor    = 1; // LOT SIZE SCALE FACTOR
 input bool                    InpSecureBuffer      = true; // SECURE BUFFER
 input double                  InpBufferPercent     = 5; // BUFFER (%)
 input int                     InpBufferDeadline    = 8; // BUFFER DEADLINE (HOUR - Server Time)
+input double                  InpDailyMaxLossUSD   = 0; // DAILY MAX LOSS (USD)
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
