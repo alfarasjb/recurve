@@ -9,7 +9,7 @@ class CNewsEvents{
 
    protected:
    private:
-      datetime    entry_window_open, entry_window_close;
+      datetime    entry_window_open_, entry_window_close_;
       CLogging    *Log_; 
    
    public:
@@ -61,8 +61,8 @@ CNewsEvents::~CNewsEvents(void){
 }
 
 void        CNewsEvents::UpdateEntryWindow(datetime window_open,datetime window_end){
-   entry_window_open = window_open;
-   entry_window_close = window_end;
+   entry_window_open_ = window_open;
+   entry_window_close_ = window_end;
 }
 
 int         CNewsEvents::ClearHandle(void){
@@ -73,32 +73,34 @@ int         CNewsEvents::ClearHandle(void){
 }
 
 int         CNewsEvents::FetchData(void){
+   /**
+      Fetches news data and adds to NEWS_CURRENT Data structure
+      
+      Called every week or if target filename does not exist. 
+      
+      Sources: ForexFactory / Robots4Forex 
+   **/
    
-   #ifdef __MQL4__ 
-   if (IsTesting()) return 0;
-   #endif 
    
-   #ifdef __MQL5__ 
-   if (MQLInfoInteger(MQL_TESTER)) return 0; 
-   #endif 
+   if (UTIL_IS_TESTING()) return 0; 
 
    ResetLastError();
+   //--- Clears Array Contents and handle. 
    ClearArray(NEWS_CURRENT);
    ClearHandle();
 
+   //--- Used as filename of news csv. 
    datetime latest = LatestWeeklyCandle(); 
    int delta = (int)(TimeCurrent() - latest); 
    int weekly_delta = PeriodSeconds(PERIOD_W1);
    
    datetime file_date = delta > weekly_delta ? latest + weekly_delta : latest;
-   //datetime file_date = latest;
    
    string file_name = StringFormat("%s.csv", TimeToString(file_date, TIME_DATE));
    string file_path = StringFormat("%s\\%s", Directory(), file_name);
-   // attempt to open file, if file does not exist, download from fxfactory
-   
-   
-   if (!FileExists(file_path)) {
+
+   //--- Download from internet if file does not exist. 
+   if (!FileIsExist(file_path)) {
       Log_.LogError(StringFormat("File %s not found. Downloading from forex factory.", file_path), __FUNCTION__);
       if (DownloadNews(file_path, InpNewsSource) == -1) Log_.LogError(StringFormat("Download Failed. Error: %i", GetLastError()), __FUNCTION__);
    }
@@ -109,6 +111,7 @@ int         CNewsEvents::FetchData(void){
    if (FILE_HANDLE == -1) return -1;
    
    switch(InpNewsSource) {
+      //--- Files are not structured in the same way 
       case FXFACTORY_WEEKLY:     ParseFXFactoryData(FILE_HANDLE); break; 
       case R4F_WEEKLY:           ParseR4FData(FILE_HANDLE); break;
    }
@@ -119,6 +122,9 @@ int         CNewsEvents::FetchData(void){
 }
 
 int         CNewsEvents::ParseFXFactoryData(int handle) { 
+   /**
+      Parse data received from forex factory
+   **/
    string result[];
    int line = 0;
    while (!FileIsLineEnding(handle)) {
@@ -143,6 +149,9 @@ int         CNewsEvents::ParseFXFactoryData(int handle) {
 }
 
 int         CNewsEvents::ParseR4FData(int handle) { 
+   /**
+      Parse data received from robots4forex
+   **/
    string result [];
    int line = 0;
    while(!FileIsLineEnding(handle)) { 
@@ -191,12 +200,14 @@ bool           CNewsEvents::FileExists(string file_path){
 }
 
 datetime       CNewsEvents::ParseDates(string date, string time){
+   /**
+      Converts download datetime to server time
+   **/
 
    string result[];
    ushort u_sep = StringGetCharacter("-", 0);
    int split = StringSplit(date, u_sep, result);
-   //Print("RESULT: ", ArraySize(result));
-   //Print("DATE: ", date, " time: ", time);
+   
    
    if (split == 0) return 0;
    int gmt_offset = (int)MathAbs(TimeGMTOffset());
@@ -219,7 +230,6 @@ datetime       CNewsEvents::ParseDates(string date, string time){
    event_time.mon = (int)result[0]; 
    event_time.day = (int)result[1];
    event_time.year = (int)result[2];
-   //event_time.hour = !IsPM && event_time.hour == 12 ? 0 : event_time.hour + 12;
    event_time.hour = !IsPM ? event_time.hour == 12 ? 0 : event_time.hour : event_time.hour != 12 ? event_time.hour + 12 : event_time.hour;
    
    
@@ -227,14 +237,20 @@ datetime       CNewsEvents::ParseDates(string date, string time){
    datetime event = StructToTime(event_time);
    
    datetime final_dt = event + gmt_server_offset_seconds;
-   //PrintFormat("INPUT: %s %s, OUTPUT: %s", date, time, TimeToString(final_dt));
-   //PrintFormat("INPUT: %s, MONTH: %i, DAY: %i, DATESTRING: %s, EVENT: %s, FINAL: %s", date, event_time.mon, event_time.day, date, TimeToString(event), TimeToString(final_dt));
    return final_dt;
 }
 
 int         CNewsEvents::GetNewsSymbolToday(void){
-   // iterate through main dataset and identify symbol and date. 
-   // Appends to news today: High impact and holiday. 
+   /**
+      Iterates through main dataset and identify symbol and date. 
+      
+      Appends to news today: High Impact and holiday 
+      
+      News filter can be manually modified depending on model requirements. 
+      
+      For this algo, only filter holidays. 
+   **/
+   
    
    ClearArray(NEWS_SYMBOL_TODAY);
    int size = NumNews();
@@ -245,7 +261,6 @@ int         CNewsEvents::GetNewsSymbolToday(void){
        if (!SymbolMatch(NEWS_CURRENT[i].country)) continue; 
        
        if (!DateMatch(DateToday(), NEWS_CURRENT[i].time)) continue; 
-       //PrintFormat("TITLE: %s, TIME: %s", NEWS_CURRENT[i].title, TimeToString(NEWS_CURRENT[i].time));
        if ((NEWS_CURRENT[i].impact == "Holiday")) AppendToNews(NEWS_CURRENT[i], NEWS_SYMBOL_TODAY); 
    }
    return ArraySize(NEWS_SYMBOL_TODAY);
