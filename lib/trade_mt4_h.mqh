@@ -201,6 +201,7 @@ void           CRecurveTrade::LoadSettingsFromFile() {
    bool load      = feature.LoadFile(Parse); 
    if (!load) {
       Log.LogInformation("Failed to load settings.", __FUNCTION__); 
+      delete feature;
       return; 
    }
    
