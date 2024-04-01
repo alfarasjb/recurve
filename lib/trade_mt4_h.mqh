@@ -470,7 +470,7 @@ TradeParams    CRecurveTrade::ParamsLong(ENUM_ORDER_SEND_METHOD method,TradeLaye
    PARAMS.sl_price         = PARAMS.entry_price - CatastrophicSLFactor(PARAMS.volume, CatastrophicLossVAR()); // CALCULATE VIRTUAL SL LATER
    PARAMS.tp_price         = 0; 
    
-   PARAMS.order_type       = ORDER_TYPE_BUY; 
+   PARAMS.order_type       = method == MODE_MARKET ? ORDER_TYPE_BUY : ORDER_TYPE_BUY_LIMIT; 
    PARAMS.layer            = layer; 
    
    return PARAMS; 
@@ -491,7 +491,7 @@ TradeParams    CRecurveTrade::ParamsShort(ENUM_ORDER_SEND_METHOD method,TradeLay
    PARAMS.sl_price         = PARAMS.entry_price + CatastrophicSLFactor(PARAMS.volume, CatastrophicLossVAR());
    PARAMS.tp_price         = 0;
    
-   PARAMS.order_type       = ORDER_TYPE_SELL; 
+   PARAMS.order_type       = method == MODE_MARKET ? ORDER_TYPE_SELL : ORDER_TYPE_SELL_LIMIT; 
    PARAMS.layer            = layer; 
    
    return PARAMS; 
