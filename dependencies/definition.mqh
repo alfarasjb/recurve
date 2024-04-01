@@ -15,8 +15,7 @@
 #include "pool.mqh"
 // ========== DEFINES ========== // 
 #undef   CONTROLS_FONT_SIZE 
-
-#define  CONTROLS_FONT_SIZE      8 
+#define  CONTROLS_FONT_SIZE      8
 
 #define     INDENT_X       10 
 #define     GAP_Y          7

@@ -4,16 +4,34 @@
 
 class CDataPanel : public CAppDialog {
    private:
+      double   dpi_scale_; 
+      int      panel_x2_, panel_y2_, panel_x1_, panel_y1_;
+      
    public:
       CDataPanel();
       ~CDataPanel(); 
       
+                              double DPIScale() const { return dpi_scale_; }
+                              int    PanelX1() const { return panel_x1_; }
+                              int    PanelY1() const { return panel_y1_; }
+                              int    PanelX2() const { return panel_x2_; }
+                              int    PanelY2() const { return panel_y2_; }
+ 
+                              int   Scale(double value)  { return (int)MathRound(value * DPIScale()); }
       template <typename T>   bool  RowCreate(CLabel &lbl, string key, T value, int row_number);
       
 };
 
 
-CDataPanel::CDataPanel(void) {}
+CDataPanel::CDataPanel(void) {
+   double screen_dpi = (double)TerminalInfoInteger(TERMINAL_SCREEN_DPI); 
+   dpi_scale_ = screen_dpi / 96; 
+   
+   panel_x1_ = Scale(SUBPANEL_X);
+   panel_y1_ = Scale(SUBPANEL_Y); 
+   panel_y2_ = panel_y1_ + (int)MathRound(SUBPANEL_HEIGHT * DPIScale());
+   panel_x2_ = panel_x1_ + (int)MathRound(SUBPANEL_WIDTH * DPIScale());
+}
 CDataPanel::~CDataPanel(void) {}
 
 template <typename T> 
@@ -44,9 +62,9 @@ class CFeaturePanel : public CDataPanel {
 
 bool        CFeaturePanel::Create(void) {
    
-   int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
-   int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   int panel_y2 = SUBPANEL_Y + (int)MathRound(SUBPANEL_HEIGHT * DPIScale());
+   int panel_x2 = SUBPANEL_X + (int)MathRound(SUBPANEL_WIDTH * DPIScale());
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(day_vol_lbl, "daily_vol", FEATURE_CONFIG.DAILY_VOLATILITY_WINDOW, 1)) return false; 
    if (!RowCreate(peak_vol_lbl, "peak_vol", FEATURE_CONFIG.DAILY_VOLATILITY_PEAK_LOOKBACK, 2)) return false; 
    if (!RowCreate(spread_lbl, "spread", FEATURE_CONFIG.NORMALIZED_SPREAD_LOOKBACK, 3)) return false; 
@@ -77,7 +95,7 @@ class CEntryPanel : public CDataPanel {
 bool        CEntryPanel::Create(void) {
    int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(window_open_lbl, "window_open", FEATURE_CONFIG.ENTRY_WINDOW_OPEN, 1)) return false; 
    if (!RowCreate(window_close_lbl, "window_close", FEATURE_CONFIG.ENTRY_WINDOW_CLOSE, 2)) return false; 
    if (!RowCreate(deadline_lbl, "deadline", FEATURE_CONFIG.TRADE_DEADLINE, 3)) return false; 
@@ -99,7 +117,7 @@ class CRiskPanel : public CDataPanel {
 bool        CRiskPanel::Create(void) {
    int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(catloss_lbl, "catloss", FEATURE_CONFIG.CATLOSS, 1)) return false; 
    if (!RowCreate(rpt_lbl, "rpt", FEATURE_CONFIG.RPT, 2)) return false; 
    if (!RowCreate(min_sl_dist_lbl, "min_sl_dist", FEATURE_CONFIG.MIN_SL_DISTANCE, 3)) return false;
@@ -122,7 +140,7 @@ class CSymbolPanel : public CDataPanel {
 bool        CSymbolPanel::Create(void) {
    int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(days_lbl, "days", CONFIG.days_string, 1)) return false; 
    if (!RowCreate(intervals_lbl, "intervals", CONFIG.intervals_string, 2)) return false;
    if (!RowCreate(low_vol_lbl, "low_vol", CONFIG.low_volatility_thresh, 3)) return false; 
@@ -146,7 +164,7 @@ class CVARPanel : public CDataPanel {
 bool        CVARPanel::Create(void) {
    int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(var_lbl, "var", NormalizeDouble(RISK.var, 2), 1)) return false; 
    if (!RowCreate(cat_var_lbl, "cat_var", NormalizeDouble(RISK.cat_var, 2), 2)) return false; 
    if (!RowCreate(day_vol_lbl, "valid_day_vol", RISK.valid_day_vol, 3)) return false; 
@@ -186,7 +204,7 @@ void        CLatestValues::Update(void) {
 bool        CLatestValues::Create(void) {
    int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH;
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(ind_spread_lbl, "read_spread", DoubleToString(m_spread, 5), 1)) return false;
    if (!RowCreate(ind_skew_lbl, "read_skew", DoubleToString(m_skew, 5), 2)) return false; 
    if (!RowCreate(ind_day_vol_lbl, "read_day_vol", NormalizeDouble(m_day_vol, 5), 3)) return false; 
@@ -227,7 +245,7 @@ bool     CAccountsPanel::Create(void) {
    int panel_y2 = SUBPANEL_Y + SUBPANEL_HEIGHT;
    int panel_x2 = SUBPANEL_X + SUBPANEL_WIDTH; 
    
-   if (!CAppDialog::Create(0, name, 0, SUBPANEL_X, SUBPANEL_Y, panel_x2, panel_y2)) return false; 
+   if (!CAppDialog::Create(0, name, 0, PanelX1(), PanelY1(), PanelX2(), PanelY2())) return false; 
    if (!RowCreate(acc_deposit_lbl, "deposit", DoubleToString(m_deposit, 2), 1)) return false; 
    if (!RowCreate(acc_start_bal_lbl, "start_bal", DoubleToString(m_start_bal_today, 2), 2)) return false; 
    if (!RowCreate(acc_symbol_trades_lbl, "trades", m_symbol_trades_today, 3)) return false; 
@@ -253,6 +271,10 @@ class CRecurveApp : public CAppDialog {
       CButton           m_feature_bt, m_entry_wnd_bt, m_risk_bt, m_symb_bt, m_var_bt, m_latest_vals_bt, m_accounts_bt; 
       CAppDialog        *ActiveDialog; 
       CLogging          *Log;
+      
+      double            dpi_scale_; 
+      
+      int               row_1_, row_2_, row_3_, col_1_, col_2_, col_3_; 
    public: 
                         CRecurveApp();
                         ~CRecurveApp(); 
@@ -273,6 +295,7 @@ class CRecurveApp : public CAppDialog {
                string   ActiveName(); 
                void     CloseActiveWindow(); 
                bool     PageIsOpen(string panel_name); 
+               int      Scale(double value); 
       
       template <typename T> bool OpenPage(T &Page); 
                
@@ -287,7 +310,17 @@ class CRecurveApp : public CAppDialog {
       EVENT_MAP_END(CAppDialog) 
 }; 
 
-CRecurveApp::CRecurveApp(void) {
+CRecurveApp::CRecurveApp() {
+   
+   double screen_dpi = (double)TerminalInfoInteger(TERMINAL_SCREEN_DPI); 
+   dpi_scale_ = screen_dpi / 96; 
+   
+   row_1_   = (int)MathRound(ROW_1 * dpi_scale_);
+   row_2_   = (int)MathRound(ROW_2 * dpi_scale_);
+   row_3_   = (int)MathRound(ROW_3 * dpi_scale_);
+   col_1_   = (int)MathRound(COLUMN_1 * dpi_scale_);
+   col_2_   = (int)MathRound(COLUMN_2 * dpi_scale_);
+   col_3_   = (int)MathRound(COLUMN_3 * dpi_scale_);
    Log   = new CLogging(InpTerminalMsg, InpPushNotifs, false); 
 }
 
@@ -301,23 +334,27 @@ void        CRecurveApp::Init(void) {
    Run(); 
 }
 
+
 bool        CRecurveApp::Create(const long chart,const string name,const int subwin,const int x1,const int y1,const int x2,const int y2) {
-   if (!CAppDialog::Create(chart, name, subwin, x1, y1, x2, y2)) return false;  
-   if (!ButtonCreate(m_feature_bt, "Feature", COLUMN_1, ROW_1)) return false; 
-   if (!ButtonCreate(m_entry_wnd_bt, "Entry Window", COLUMN_1, ROW_2)) return false; 
-   if (!ButtonCreate(m_risk_bt, "Risk", COLUMN_2, ROW_1)) return false; 
-   if (!ButtonCreate(m_symb_bt, "Symbol Config", COLUMN_2, ROW_2)) return false; 
-   if (!ButtonCreate(m_var_bt, "VAR", COLUMN_3, ROW_1)) return false; 
-   if (!ButtonCreate(m_latest_vals_bt, "Latest Values", COLUMN_3, ROW_2)) return false; 
-   if (!ButtonCreate(m_accounts_bt, "Accounts", COLUMN_1, ROW_3)) return false; 
+   int scaled_x2 = (int)MathRound(x2 * dpi_scale_);
+   int scaled_y2 = (int)MathRound(y2 * dpi_scale_); 
+   if (!CAppDialog::Create(chart, name, subwin, x1, y1, scaled_x2, scaled_y2)) return false;  
+   
+   if (!ButtonCreate(m_feature_bt, "Feature", col_1_, row_1_)) return false; 
+   if (!ButtonCreate(m_entry_wnd_bt, "Entry Window", col_1_, row_2_)) return false; 
+   if (!ButtonCreate(m_risk_bt, "Risk", col_2_, row_1_)) return false; 
+   if (!ButtonCreate(m_symb_bt, "Symbol Config", col_2_, row_2_)) return false; 
+   if (!ButtonCreate(m_var_bt, "VAR", col_3_, row_1_)) return false; 
+   if (!ButtonCreate(m_latest_vals_bt, "Latest Values", col_3_, row_2_)) return false; 
+   if (!ButtonCreate(m_accounts_bt, "Accounts", col_1_, row_3_)) return false; 
    return true; 
 }
 
 bool        CRecurveApp::ButtonCreate(CButton &bt,const string name,const int x1,const int y1) {
-   int x_1 = x1 + BUTTON_WIDTH;
-   int y_1 = y1 + BUTTON_HEIGHT; 
+   int x_1 = x1 + (int)MathRound(BUTTON_WIDTH * dpi_scale_);
+   int y_1 = y1 + (int)MathRound(BUTTON_HEIGHT * dpi_scale_); 
    if (!bt.Create(0, name, 0, x1, y1, x_1, y_1))     return false; 
-   if (!bt.Text(name))                             return false; 
+   if (!bt.Text(name))                             return false;
    if (!Add(bt))                                   return false; 
    return true; 
 }

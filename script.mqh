@@ -13,8 +13,9 @@ CRecurveTrade              recurve_trade;
 CCalendarHistoryLoader     calendar_loader;
 CNewsEvents                news_events;
 CRecurveApp                AppDialog; 
+
+
 int OnInit() {
-   
    
    ObjectsDeleteAll(0, -1, -1);
    
