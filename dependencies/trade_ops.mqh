@@ -242,7 +242,7 @@ int      CTradeOps::OP_OrdersCloseAll(void) {
       if (c) closed++; 
    }*/
    
-   int closed, active_ticket;
+   int closed = 0, active_ticket;
    bool d; 
    while (tickets_to_close.Size() > 0) {
       //--- Unstack 
