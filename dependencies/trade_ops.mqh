@@ -176,13 +176,29 @@ int      CTradeOps::OP_OrderOpen(
    double tp,
    string comment,
    datetime expiration=0) {
+      //--- Validate inputs 
+      
       #ifdef __MQL4__ 
       int ticket = OrderSend(Symbol(), order_type, NormalizeDouble(volume, 2), price, 3, sl, tp, comment, MAGIC(), expiration);
       #endif 
       
       #ifdef __MQL5__
       // TODO: PENDING ORDERS
-      int result = Trade.PositionOpen(symbol, order_type, NormalizeDouble(volume, 2), price, sl, tp, comment);
+      
+      int result; 
+      switch(OrderTypeIsPending(order_type)) {
+         case true:
+            switch(order_type) {
+               case ORDER_TYPE_BUY_STOP_LIMIT:
+               case ORDER_TYPE_SELL_STOP_LIMIT: 
+                  Log_.LogInformation("Order functions for this order type is not yet implemented.", __FUNCTION__);
+                  return 0;
+            }
+            result = Trade.OrderOpen(symbol, order_type, NormalizeDouble(volume, 2), 0, price, sl, tp, ORDER_TIME_GTC, expiration, comment); 
+         case false:  
+            result = Trade.PositionOpen(symbol, order_type, NormalizeDouble(volume, 2), price, sl, tp, comment); 
+            break; 
+      }
       ulong ret_code = Trade.ResultRetcode(); 
       if (ret_code != TRADE_RETCODE_DONE) Log_.LogError(StringFormat("Position open error. Code: %i", ret_code), __FUNCTION__); 
       
