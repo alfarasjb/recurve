@@ -1342,12 +1342,13 @@ int            CRecurveTrade::Recover() {
       Log.LogInformation(StringFormat("Recovery window valid. Running PL is negative. PL: %f", running_pl), __FUNCTION__); 
       return 0; 
    }
-   int extracted[];
-   int num_extracted = ALGO_POSITIONS_.Extract(extracted); 
-   int c = OP_OrdersCloseBatch(extracted); 
-   if (c == 0 && num_extracted > 0) {
-      Log.LogInformation(StringFormat("PL Recovered. Positions Closed: %i", 
-         num_extracted), __FUNCTION__); 
+   //int extracted[];
+   //int num_extracted = ALGO_POSITIONS_.Extract(extracted); 
+   //int c = OP_OrdersCloseBatch(extracted); 
+   while (PosTotal() > 0) OP_OrdersCloseAll(); 
+   //if (c == 0 && num_extracted > 0) {
+   if (PosTotal() == 0) {
+      Log.LogInformation("PL Recovered.", __FUNCTION__); 
       CReports *reports = GenerateReports(); 
       reports.Reason("recovery");
       reports.Export();
@@ -1356,7 +1357,7 @@ int            CRecurveTrade::Recover() {
    ALGO_POSITIONS_.Clear();
    UpdatePositions();
    
-   return num_extracted;
+   return 1;
 }
 
 
