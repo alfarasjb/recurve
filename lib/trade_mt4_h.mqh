@@ -1150,7 +1150,7 @@ bool           CRecurveTrade::ValidCloseOnCutShort(int ticket) {
 
 bool           CRecurveTrade::ValidCloseOnTakeProfitLong(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
-   bool profit = PosProfit() < 0; 
+   bool profit = PosProfit() > 0; 
    string log_message   = StringFormat("Invalid take profit long for ticket: %i", ticket); 
    
    if (PosOrderType() != ORDER_TYPE_BUY) {
@@ -1176,7 +1176,7 @@ bool           CRecurveTrade::ValidCloseOnTakeProfitLong(int ticket) {
 }
 bool           CRecurveTrade::ValidCloseOnTakeProfitShort(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
-   bool profit = PosProfit() < 0; 
+   bool profit = PosProfit() > 0; 
    string log_message   = StringFormat("Invalid take profit short for ticket: %i", ticket); 
    
    if (PosOrderType() != ORDER_TYPE_SELL) {  
