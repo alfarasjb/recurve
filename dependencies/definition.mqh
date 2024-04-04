@@ -399,11 +399,11 @@ input double                  InpDailyMaxLossUSD   = 0; // DAILY MAX LOSS (USD)
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 
-input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = STACK_ON_PROFIT; // FLOATING PROFIT MGT - Model Default - IGNORE
-input ENUM_FLOATING_DD_MGT    InpFloatingDD        = IGNORE_LOSS; // FLOATING DD MGT - Model Default - CUT 
+input ENUM_FLOATING_GAIN_MGT  InpFloatingGain      = SECURE_FLOATING_PROFIT; // FLOATING PROFIT MGT - Model Default - IGNORE
+input ENUM_FLOATING_DD_MGT    InpFloatingDD        = CUT_FLOATING_LOSS; // FLOATING DD MGT - Model Default - CUT 
 input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE LAYERS 
 input int                     InpMaxDayTrades      = 3; // MAX TRADES ALLOWED PER DAY PER SYMBOL
-input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_BREAKEVEN; // TRADE MANAGEMENT
+input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_TRAILSTOP; // TRADE MANAGEMENT
 input double                  InpBEThreshold       = 1; // BREAKEVEN THRESHOLD (%)
 input string                  InpEmpty_6           = ""; //
 
