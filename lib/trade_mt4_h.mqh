@@ -930,7 +930,13 @@ int            CRecurveTrade::ClosePositions(ENUM_SIGNAL reason) {
             }
             
       }
-    
+      if (ValidCloseOnDrift(ticket)) {
+         
+         Log.LogInformation(StringFormat("Closing on drift. Ticket: %i", ticket), __FUNCTION__); 
+         trades_to_close.Append(ticket);
+         continue; 
+      }
+      
       switch(reason) {
          case TRADE_LONG:        if (!ValidCloseOnTradeLong(ticket))       continue; break; 
          case TRADE_SHORT:       if (!ValidCloseOnTradeShort(ticket))      continue; break;
@@ -1201,6 +1207,50 @@ bool           CRecurveTrade::ValidCloseOnTakeProfitShort(int ticket) {
    return true; 
 }
 
+bool           CRecurveTrade::ValidCloseOnDrift(int ticket) {
+   /**
+      Cuts losses when price drifts from trade entry price. See model conditions. 
+      
+      Test Case: GBPAUD 4/4/2024
+      
+   **/
+   
+   //--- Still under construction. Do not use on prod yet. 
+   return false; 
+   
+   if (ticket != PosTicket()) OP_OrderSelectByTicket(ticket); 
+   //--- Ignore if in profit
+   if (PosProfit() > 0) return false; 
+    
+   //PrintFormat("Ord: %s, Trade Open: %f, Upper: %f", EnumToString(PosOrderType()), PosOpenPrice(), FEATURE.upper_bands); 
+   switch(PosOrderType()) {
+      //--- See model conditions for cut on drift
+      case ORDER_TYPE_BUY: 
+         if (FEATURE.upper_bands > PosOpenPrice()) return false; 
+         if (FEATURE.standard_score_value > -FEATURE_CONFIG.SPREAD_THRESHOLD) return false; 
+         Log.LogInformation(StringFormat("Cut on drift valid. Ticket: %i, Order: %s, Trade Open Price: %f, Upper Band: %f, Standard Score: %f, Threshold: %f", 
+            ticket,
+            EnumToString(PosOrderType()), 
+            PosOpenPrice(),
+            FEATURE.upper_bands,
+            FEATURE.standard_score_value,
+            -FEATURE_CONFIG.SPREAD_THRESHOLD), __FUNCTION__); 
+         return true; 
+      case ORDER_TYPE_SELL:
+         if (FEATURE.lower_bands < PosOpenPrice()) return false; 
+         if (FEATURE.standard_score_value < FEATURE_CONFIG.SPREAD_THRESHOLD) return false; 
+         Log.LogInformation(StringFormat("Cut on drift valid. Ticket: %i, Order: %s, Trade Open Price: %f, Lower Band: %f, Standard Score: %f, Threshold: %f",
+            ticket,
+            EnumToString(PosOrderType()),
+            PosOpenPrice(),
+            FEATURE.lower_bands,
+            FEATURE.standard_score_value,
+            FEATURE_CONFIG.SPREAD_THRESHOLD), __FUNCTION__); 
+         return true; 
+      default: break;   
+   }
+   return false; 
+}
 
 
 bool           CRecurveTrade::ValidTradeOpen() {
@@ -1715,8 +1765,7 @@ ENUM_SIGNAL    CRecurveTrade::CutLoss(FeatureValues &features) {
       Conditions satisfied at this point:
          1. Floating Loss
          2. No trade signals
-   **/
-   
+   **/   
    //-- Cut Short condition 
    if (((features.standard_score_value <= -FEATURE_CONFIG.SPREAD_THRESHOLD) || (UTIL_CANDLE_LOW() < features.lower_bands)) 
       && (features.last_candle_close > features.slow_upper)) 

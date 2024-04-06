@@ -211,7 +211,7 @@ class CRecurveTrade : public CTradeOps {
       bool        ValidCloseOnCutShort(int ticket);
       bool        ValidCloseOnTakeProfitLong(int ticket);
       bool        ValidCloseOnTakeProfitShort(int ticket); 
-      
+      bool        ValidCloseOnDrift(int ticket); 
       
       bool        ValidTradeOpen();
       bool        ValidFeatureBreakeven(int ticket); 
