@@ -1088,7 +1088,7 @@ Methods below are only triggered by closing signals
 
 bool           CRecurveTrade::ValidCloseOnCutLong(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
-   bool profit = PosProfit() < 0; 
+   bool profit = PosProfit() > 0; 
    /*
       Valid Conditions:
          - Order = Long 
@@ -1123,7 +1123,7 @@ bool           CRecurveTrade::ValidCloseOnCutLong(int ticket) {
 
 bool           CRecurveTrade::ValidCloseOnCutShort(int ticket) {
    int s = OP_OrderSelectByTicket(ticket); 
-   bool profit = PosProfit() < 0; 
+   bool profit = PosProfit() > 0; 
    string log_message   = StringFormat("Invalid cut short for ticket: %i", ticket); 
    
    if (PosOrderType() != ORDER_TYPE_SELL) {
