@@ -47,12 +47,12 @@ void        CLogging::LogInformation(string message, string function, bool debug
       return; 
    }
    
-   PrintFormat("LOGGER - %s: %s", function, message); 
+   PrintFormat("LOGGER - %s %s: %s", TimeToString(TimeCurrent()), function, message); 
 }
 
 void        CLogging::LogDebugInformation(string message,string function) {
    
-   PrintFormat("DEBUGGER - %s: %s", function, message); 
+   PrintFormat("DEBUGGER - %s %s: %s", TimeToString(TimeCurrent()), function, message); 
 }
 
 void        CLogging::LogNotification(string message) {
@@ -70,5 +70,5 @@ void        CLogging::LogAlert(string message) {
 
 void        CLogging::LogError(string message, string function) {
    ResetLastError(); 
-   PrintFormat("ERROR - %s: Code: %i, Message: %s", function, GetLastError(), message);
+   PrintFormat("ERROR - %s %s: Code: %i, Message: %s", TimeToString(TimeCurrent()), function, GetLastError(), message);
 }

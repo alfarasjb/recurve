@@ -1070,6 +1070,7 @@ bool           CRecurveTrade::ValidCloseOnTradeShort(int ticket) {
          Log.LogInformation(StringFormat("%s. Reason - %s",
             log_message,
             TradeLogicErrorReason(REASON_INVERT)), __FUNCTION__); 
+         return true;
       }
    }
    Log.LogInformation("Invalid close on short signal.", __FUNCTION__); 
