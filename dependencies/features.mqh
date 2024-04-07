@@ -63,7 +63,7 @@ bool        CFeatureLoader::LoadFile(TParse parse_func) {
       return false; 
    }
    else {
-      Print("Configuration file found.");
+      Log.LogInformation(StringFormat("Configuration file found. Path: %s", FILEPATH()), __FUNCTION__);
    }
    string result[];
    

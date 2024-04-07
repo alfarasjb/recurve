@@ -407,6 +407,7 @@ double         CRecurveTrade::CalcLot(double sl_distance) {
    
    
    double var           = ValueAtRisk();
+   
    double lot_size      = (var * TRADE_POINTS()) / (sl_distance * TICK_VALUE()) * InpLotScaleFactor; 
    //-- Symbol max lot and min lot 
    double min_lot       = UTIL_SYMBOL_MINLOT();
