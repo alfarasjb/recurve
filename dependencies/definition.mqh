@@ -107,6 +107,8 @@ enum ENUM_PRESET {
    MODE_AGGRESSIVE, // Aggressive
    MODE_AGGRESSIVE_SECONDARY, // Aggressive Secondary
    MODE_PROP, // Prop 
+   MODE_PROP_AGGRESSIVE, // Prop Aggressive
+   MODE_PROP_CHALL_SAFE, // Prop Safe
    MODE_STANDARD // Standard
 };
 
