@@ -89,6 +89,7 @@ class CRecurveTrade : public CTradeOps {
       void           InitializeAccounts(); 
       void           OnEndOfDay(); 
       void           TrackAccounts(); 
+      void           CheckIfTradeAllowed(); 
       
       //-- CONFIG
       void           LoadSettingsFromFile();

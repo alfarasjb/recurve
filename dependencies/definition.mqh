@@ -142,6 +142,7 @@ enum ENUM_FREQUENCY {
    FULL // FULL - 0
 };
 
+
 #ifdef __MQL5__ 
 enum ENUM_BBANDS_MODE {
    MODE_UPPER, 
