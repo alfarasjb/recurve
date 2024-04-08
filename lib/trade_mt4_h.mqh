@@ -2,6 +2,7 @@
 
 
 void           CRecurveTrade::Init() {
+   CheckIfTradeAllowed();
    InitializeConfigurationPaths();
    InitializeAccounts(); 
    InitializeOpenPositions(); 
@@ -133,6 +134,21 @@ void           CRecurveTrade::InitializeOpenPositions() {
    int num_open_positions  = ALGO_POSITIONS_.Init(); 
    Log.LogInformation(StringFormat("Num Open Positions: %i", num_open_positions), __FUNCTION__); 
 }
+
+
+void           CRecurveTrade::CheckIfTradeAllowed() {
+   /**
+      Throws an alert if autotrading is disabled, or ea trading is disabled. 
+   **/
+   if (!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED)) 
+      Alert("Error. AutoTrading is disabled."); 
+   
+   if (!MQLInfoInteger(MQL_TRADE_ALLOWED)) 
+      Alert(StringFormat("Error. Automated trading is disabled in EA Settings for %s, EA File: %s", Symbol(), WindowExpertName())); 
+   
+}
+
+
 //+------------------------------------------------------------------+
 //| ARRAY OPS                                                        |
 //+------------------------------------------------------------------+
@@ -204,10 +220,11 @@ void           CRecurveTrade::LoadSymbolConfigFromFile() {
    int num_trading_days = ArraySize(SYMBOL_CONFIG.trade_days);
    
    //-- Returns Input configuration if config file is not found for attached symbol. 
-   if (num_trading_days == 0) {
+   if (!loaded) {
       Log.LogError(StringFormat("No Config found for %s. Using inputs.", Symbol()), __FUNCTION__); 
       LoadSymbolConfigFromInput();
       delete feature;
+      ExpertRemove(); 
       return;
    }
    
@@ -1610,7 +1627,7 @@ int            CRecurveTrade::Stage() {
    
    /**
       Staging algo logic 
-   **/
+   **/ 
    
    RISK.var                = ValueAtRisk();
    RISK.cat_var            = CatastrophicLossVAR(); 
