@@ -1682,8 +1682,8 @@ bool           CRecurveTrade::ValidTradeWindow() {
    int ENTRY_HOUR       = FEATURE_CONFIG.ENTRY_WINDOW_OPEN; // convert to input 
    int EXIT_HOUR        = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE; // convert to input 
    
-   if (hour < ENTRY_HOUR) return false ;
-   if (hour > EXIT_HOUR) return false; 
+   if (hour < ENTRY_HOUR) return false;
+   if (hour >= EXIT_HOUR) return false; 
    return true; 
    
 }
@@ -1697,7 +1697,7 @@ bool           CRecurveTrade::ValidRecoveryWindow() {
    int RECOVERY_ENTRY   = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE;
    int RECOVERY_EXIT    = FEATURE_CONFIG.TRADE_DEADLINE; 
    
-   if (hour < RECOVERY_ENTRY) return false; 
+   if (hour <= RECOVERY_ENTRY) return false; 
    if (hour > RECOVERY_EXIT)  return false;
    return true; 
 }
