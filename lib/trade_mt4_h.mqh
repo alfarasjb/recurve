@@ -1229,12 +1229,12 @@ bool           CRecurveTrade::ValidCloseOnDrift(int ticket) {
    /**
       Cuts losses when price drifts from trade entry price. See model conditions. 
       
-      Test Case: GBPAUD 4/4/2024
+      Test Case: GBPAUD 4/4/2024, AUDUSD 4/12/2024
       
    **/
    
    //--- Still under construction. Do not use on prod yet. 
-   return false; 
+   if (!InpCutOnDrift) return false; 
    
    if (ticket != PosTicket()) OP_OrderSelectByTicket(ticket); 
    //--- Ignore if in profit
