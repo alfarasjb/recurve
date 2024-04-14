@@ -414,6 +414,7 @@ input int                     InpMaxLayers         = 2; // MAX STACKS/MARTINGALE
 input int                     InpMaxDayTrades      = 3; // MAX TRADES ALLOWED PER DAY PER SYMBOL
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_TRAILSTOP; // TRADE MANAGEMENT
 input double                  InpBEThreshold       = 1; // BREAKEVEN THRESHOLD (%)
+input bool                    InpCutOnDrift        = true; // CUT ON DRIFT
 input string                  InpEmpty_6           = ""; //
 
 input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========
