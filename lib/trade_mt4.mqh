@@ -215,6 +215,7 @@ class CRecurveTrade : public CTradeOps {
       bool        ValidCloseOnDrift(int ticket); 
       
       bool        ValidTradeOpen();
+      bool        ValidOpenPositions(); 
       bool        ValidFeatureBreakeven(int ticket); 
       
       string      TradeLogicErrorReason(ENUM_TRADE_LOGIC_ERROR_REASON reason); 

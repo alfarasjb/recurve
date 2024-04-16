@@ -405,6 +405,7 @@ input bool                    InpSecureBuffer      = true; // SECURE BUFFER
 input double                  InpBufferPercent     = 5; // BUFFER (%)
 input int                     InpBufferDeadline    = 8; // BUFFER DEADLINE (HOUR - Server Time)
 input double                  InpDailyMaxLossUSD   = 0; // DAILY MAX LOSS (USD)
+input int                     InpMaxOpenPositions  = 5; // MAX OPEN POSITIONS
 input string                  InpEmpty_5           = ""; // 
 
 input string                  InpPosMgt            = " Position Management "; // ========== POSITION MANAGEMENT ========== 

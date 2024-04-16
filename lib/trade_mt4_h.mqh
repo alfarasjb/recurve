@@ -1276,6 +1276,7 @@ bool           CRecurveTrade::ValidTradeOpen() {
       Opening trades is prohibited when action is ignored
    */
    
+   
    bool floating_loss   = InFloatingLoss(); 
    
    switch(floating_loss) {
@@ -1290,12 +1291,37 @@ bool           CRecurveTrade::ValidTradeOpen() {
    return false;
 }
 
+bool           CRecurveTrade::ValidOpenPositions() {
+   /*
+      Returns true if current number of open positions is below limit 
+      defined by InpMaxOpenPositions
+      
+      Returns false if otherwise
+      
+      Future plans:
+         Add options on what to do if limit is reached.
+         
+         Options:
+            1. Ignore - Ignores incoming signal if limit is reached
+            2. Close - Closes the oldest trade 
+            3. Close Loss - Closes the oldest losing trade 
+   */
+   return PosTotal() < InpMaxOpenPositions; 
+}
+
 //--- SIGNAL MANAGEMENT ---//
 //--- TEMPORARY ---// 
 
 int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
    
    if (!ValidTradeOpen()) {
+      return 0; 
+   }
+   
+   if (!ValidOpenPositions()) {
+      Log.LogInformation(StringFormat("Max Open Positions Reached. Open Positions: %i, Limit: %i", 
+         PosTotal(), 
+         InpMaxOpenPositions), __FUNCTION__);
       return 0; 
    }
 
