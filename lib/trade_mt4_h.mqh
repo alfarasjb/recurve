@@ -1720,10 +1720,10 @@ bool           CRecurveTrade::ValidRecoveryWindow() {
    **/
    
    int hour             = UTIL_TIME_HOUR(TimeCurrent());
-   int RECOVERY_ENTRY   = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE;
-   int RECOVERY_EXIT    = FEATURE_CONFIG.TRADE_DEADLINE; 
+   int RECOVERY_ENTRY   = FEATURE_CONFIG.ENTRY_WINDOW_CLOSE; // 18
+   int RECOVERY_EXIT    = FEATURE_CONFIG.TRADE_DEADLINE; //22
    
-   if (hour <= RECOVERY_ENTRY) return false; 
+   if (hour < RECOVERY_ENTRY) return false; 
    if (hour > RECOVERY_EXIT)  return false;
    return true; 
 }
