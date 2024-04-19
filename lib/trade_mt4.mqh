@@ -40,6 +40,7 @@
 #include "../dependencies/definition.mqh"
 #include "positions.mqh"
 #include "reports.mqh"
+#include "correlation.mqh"
 //#include "accounts_secondary.mqh"
 class CRecurveTrade : public CTradeOps {
 
@@ -66,6 +67,8 @@ class CRecurveTrade : public CTradeOps {
       
    public: 
       CLogging       *Log; 
+      CCorrelation   *Correlation; 
+      
       //-- SYMBOL PROPERTIES WRAPPERS 
       double         TICK_VALUE() const   { return tick_value_; }
       double         TRADE_POINTS() const { return trade_points_; }
@@ -191,6 +194,7 @@ class CRecurveTrade : public CTradeOps {
       int               UpdatePositions();   
       int               RepopulateAlgoPositions(CPoolGeneric<int> *&synthetic); 
       ENUM_ORDER_TYPE   CurrentOpenPosition(); 
+      ENUM_ORDER_TYPE   SignalToMarketOrder(ENUM_SIGNAL signal); 
       
       int            ClosePositions(ENUM_SIGNAL reason); 
       
