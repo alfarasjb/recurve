@@ -416,6 +416,7 @@ input int                     InpMaxDayTrades      = 3; // MAX TRADES ALLOWED PE
 input ENUM_TRADE_MANAGEMENT   InpTradeMgt          = MODE_TRAILSTOP; // TRADE MANAGEMENT
 input double                  InpBEThreshold       = 1; // BREAKEVEN THRESHOLD (%)
 input bool                    InpCutOnDrift        = true; // CUT ON DRIFT
+input int                     InpCorrelationLimit  = 2; // CORRELATION LIMIT
 input string                  InpEmpty_6           = ""; //
 
 input string                  InpMisc              = "Misc Settings"; // ========== MISC ==========
@@ -476,4 +477,3 @@ const string   REPORTS_DIRECTORY    = "recurve\\reports\\";
 //const string   SYMBOLS_DIRECTORY    = "recurve\\symbols\\";
 
 // DAY OF WEEK 0 - Sunday, 1, 2, 3, 4, 5, 6
-

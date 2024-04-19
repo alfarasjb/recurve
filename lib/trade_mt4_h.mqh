@@ -2,6 +2,9 @@
 
 
 void           CRecurveTrade::Init() {
+   
+   Correlation = new CCorrelation(InpMagic, InpCorrelationLimit); 
+
    CheckIfTradeAllowed();
    InitializeConfigurationPaths();
    InitializeAccounts(); 
@@ -1313,7 +1316,7 @@ bool           CRecurveTrade::ValidOpenPositions() {
 //--- TEMPORARY ---// 
 
 int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
-   
+
    if (!ValidTradeOpen()) {
       return 0; 
    }
@@ -1324,7 +1327,17 @@ int            CRecurveTrade::SendOrder(ENUM_SIGNAL signal) {
          InpMaxOpenPositions), __FUNCTION__);
       return 0; 
    }
-
+   
+   //--- Raise Error and return if too many correlated positions already exist in order pool 
+   if (signal == TRADE_LONG || signal == TRADE_SHORT) {
+   
+      ENUM_ORDER_TYPE order_type = SignalToMarketOrder(signal); 
+      if (!Correlation.CorrelationValid(order_type)) {
+         Correlation.RaiseError(order_type); 
+         return 0; 
+      }
+   }
+   
    //-- Currently not used. Primarily for layering
    TradeLayer     LAYER;
    LAYER.layer          = LAYER_PRIMARY;
@@ -1568,6 +1581,13 @@ ENUM_ORDER_TYPE   CRecurveTrade::CurrentOpenPosition() {
    return -1; 
 }
 
+
+ENUM_ORDER_TYPE   CRecurveTrade::SignalToMarketOrder(ENUM_SIGNAL signal) {
+   
+   if (signal == TRADE_LONG) return ORDER_TYPE_BUY;
+   if (signal == TRADE_SHORT) return ORDER_TYPE_SELL;
+   return NULL; 
+}
 //+------------------------------------------------------------------+
 //| LOGIC                                                            |
 //+------------------------------------------------------------------+
@@ -2027,4 +2047,5 @@ double         CRecurveTrade::SLOW_UPPER()        { return BBANDS_SLOW(MODE_UPPE
 double         CRecurveTrade::SLOW_LOWER()        { return BBANDS_SLOW(MODE_LOWER, 3); }
 double         CRecurveTrade::PD_UPPER_BANDS()    { return BBANDS(MODE_UPPER, 2, 2); }
 double         CRecurveTrade::PD_LOWER_BANDS()    { return BBANDS(MODE_LOWER, 2, 2); }
+
 
